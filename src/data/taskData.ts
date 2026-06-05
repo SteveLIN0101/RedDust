@@ -1,7 +1,7 @@
 import type { GlobalState, RedDustTask, TaskLocation } from "./types";
 
 export const initialState: GlobalState = {
-  day: 1,
+  day: 0,
   water: 45,
   medicine: 40,
   trust: 35,
@@ -9,6 +9,23 @@ export const initialState: GlobalState = {
   signal: 20,
   morale: 45,
   branch: "common",
+  routeLeaning: "contested",
+  pressure_level: "normal",
+  failure_stage: 0,
+  recovery_window: 2,
+  battery: 55,
+  outside_risk: 25,
+  autonomy_readiness: 10,
+  storm_readiness: 10,
+  route_confidence: 10,
+  rescue_confidence: 5,
+  blue_zone_evidence: 0,
+  medical_pressure: 25,
+  xiao_tie_health: 70,
+  dissatisfaction: 25,
+  decision_integrity: 20,
+  privacy_risk: 10,
+  maintenance_debt: 10,
   completedTasks: [],
   replayLog: []
 };

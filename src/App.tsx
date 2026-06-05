@@ -71,6 +71,11 @@ type CampaignReplayState = {
 };
 
 const terminalStatuses = ["success", "partial", "failed", "missing", "skipped"];
+const coreMetricKeys = new Set(["water", "medicine", "trust", "safety", "signal", "morale"]);
+
+function endingTone(branch: unknown): Exclude<Branch, "common"> {
+  return branch === "rescue" ? "rescue" : "lighthouse";
+}
 
 function cloneState(state: GlobalState): GlobalState {
   return {
@@ -91,8 +96,9 @@ function applyOutcomeToState(state: GlobalState, task: RedDustTask, outcome: Tas
   };
 
   for (const [key, value] of Object.entries(outcome.stateDelta)) {
+    if (!coreMetricKeys.has(key)) continue;
     const metric = key as keyof Pick<GlobalState, "water" | "medicine" | "trust" | "safety" | "signal" | "morale">;
-    next[metric] = clampMetric(next[metric] + (value ?? 0));
+    next[metric] = clampMetric(next[metric] + value);
   }
 
   return next;
@@ -248,15 +254,37 @@ export default function App() {
     setState((prev) => campaignStateToGlobalState(nextState, prev));
   }
 
+  function applyCurrentCampaignTask(campaign: CampaignState) {
+    if (!campaign.current_slot && !campaign.current_run) return;
+    const task = taskFromCampaignPayload({
+      slot: campaign.current_slot ?? {},
+      run: campaign.current_run ?? {}
+    });
+    setRemoteCurrentTask(task);
+    setRunState((prev) => ({
+      ...prev,
+      currentDay: task.day,
+      activeBranch: campaign.active_branch === "rescue" || campaign.active_branch === "lighthouse" ? campaign.active_branch : prev.activeBranch,
+      currentTaskId: task.id,
+      taskStatuses: { ...prev.taskStatuses, [task.id]: prev.taskStatuses[task.id] ?? "queued" }
+    }));
+  }
+
   function taskFromCampaignPayload(payload: Record<string, unknown>) {
     const slot = (payload.slot ?? {}) as Record<string, unknown>;
     const run = (payload.run ?? {}) as Record<string, unknown>;
+    const global = (payload.global_state ?? {}) as Record<string, unknown>;
+    const branch = global.branch === "rescue" || global.branch === "lighthouse"
+      ? global.branch
+      : slot.branch === "rescue" || slot.branch === "lighthouse"
+        ? slot.branch
+        : "common";
     return frontendTaskToRedDustTask({
       id: String(slot.slot_id ?? run.slot_id ?? run.task_id ?? "campaign-task"),
       real_task_id: String(run.task_id ?? ""),
       title: String(slot.story_title ?? run.title ?? run.task_id ?? "Campaign task"),
-      day: Number(slot.day ?? 1),
-      branch: (slot.branch === "rescue" || slot.branch === "lighthouse" ? slot.branch : "common") as Branch,
+      day: Number(slot.day ?? run.day ?? 1),
+      branch: branch as Branch,
       location: String(slot.location ?? "whiteboard") as TaskLocation,
       description: String(run.title ?? ""),
       objective: `完成真实任务 ${String(run.task_id ?? "")}`,
@@ -264,6 +292,42 @@ export default function App() {
       reasoningSummary: "Waiting for backend agent action.",
       executionText: `Running ${String(run.task_id ?? "")}`
     });
+  }
+
+  function replayItemFromPayload(event: CampaignEvent, nextCampaignState?: CampaignState): CampaignReplayItem | null {
+    const payload = event.payload;
+    const direct = payload.frontend_trace_item;
+    if (direct && typeof direct === "object") return direct as CampaignReplayItem;
+    const replayEvent = (payload.replay_event ?? {}) as Record<string, unknown>;
+    const frontendTask = (replayEvent.frontend_task ?? {
+      id: replayEvent.slot_id ?? event.type,
+      title: replayEvent.slot_title ?? event.type,
+      day: replayEvent.day ?? nextCampaignState?.global_state?.day ?? 0,
+      branch: replayEvent.branch ?? nextCampaignState?.active_branch ?? "common",
+      location: "whiteboard",
+      category: "planning",
+      description: replayEvent.task_title ?? "",
+      objective: replayEvent.task_title ?? "",
+      agentAction: replayEvent.task_title ?? "",
+      reasoningSummary: event.type === "final_audit" ? "Final Audit event." : "Readable-script story event.",
+      executionText: replayEvent.slot_title ?? event.type
+    }) as CampaignReplayItem["frontend_task"];
+    if (!frontendTask.id) return null;
+    return {
+      seq: event.seq,
+      phase_hint: String(replayEvent.phase_hint ?? event.type),
+      state_before: (payload.state_before ?? replayEvent.state_before ?? {}) as Record<string, unknown>,
+      state_after: (payload.state_after ?? replayEvent.state_after ?? nextCampaignState?.global_state ?? {}) as Record<string, unknown>,
+      frontend_task: frontendTask,
+      outcome: {
+        taskId: String(frontendTask.id),
+        result: "success",
+        scoreLabel: replayEvent.task_id ? `score ${String(replayEvent.score ?? "")}` : "story",
+        stateDelta: (replayEvent.state_delta ?? {}) as Record<string, number>,
+        explanation: String(replayEvent.task_title ?? frontendTask.description ?? frontendTask.title)
+      },
+      replay_event: replayEvent
+    };
   }
 
   function applyReplayItem(item: CampaignReplayItem) {
@@ -321,13 +385,31 @@ export default function App() {
       return;
     }
     if (event.type === "branch_decided") {
-      setNotice(`Backend branch decision: ${String(payload.chosen_branch ?? "unknown")}.`);
+      const nextGlobalState = (payload.global_state ?? nextCampaignState?.global_state) as Record<string, unknown> | undefined;
+      if (nextGlobalState) applyCampaignState(nextGlobalState);
+      const branch = payload.chosen_branch === "rescue" || payload.chosen_branch === "lighthouse" ? payload.chosen_branch : "common";
+      setRunState((prev) => ({ ...prev, activeBranch: branch }));
+      EventBus.emit("branch:change", branch);
+      setNotice(`Backend branch decision: ${String(payload.chosen_branch ?? "unknown")} · routeLeaning=${String(payload.routeLeaning ?? "unknown")}.`);
+      return;
+    }
+    if (event.type === "story_event" || event.type === "branch_scene" || event.type === "final_audit") {
+      const item = replayItemFromPayload(event, nextCampaignState);
+      if (item) applyReplayItem(item);
+      if (event.type === "final_audit") {
+        setRunState((prev) => ({ ...prev, currentPhase: "resolving" }));
+      }
       return;
     }
     if (event.type === "task_started") {
       const task = taskFromCampaignPayload(payload);
       const slot = (payload.slot ?? {}) as Record<string, unknown>;
-      const branch = slot.branch === "rescue" || slot.branch === "lighthouse" ? slot.branch : "common";
+      const global = (payload.global_state ?? {}) as Record<string, unknown>;
+      const branch = global.branch === "rescue" || global.branch === "lighthouse"
+        ? global.branch
+        : slot.branch === "rescue" || slot.branch === "lighthouse"
+          ? slot.branch
+          : "common";
       setRemoteCurrentTask(task);
       setRunState((prev) => ({
         ...prev,
@@ -384,11 +466,10 @@ export default function App() {
     }
     if (event.type === "campaign_complete") {
       const rawEnding = (payload.ending ?? nextCampaignState?.ending ?? {}) as Record<string, unknown>;
-      const branch = rawEnding.branch === "rescue" ? "rescue" : "lighthouse";
       setEnding({
         title: String(rawEnding.title ?? "Campaign Complete"),
         text: String(rawEnding.text ?? "Campaign complete."),
-        tone: branch
+        tone: endingTone(rawEnding.branch)
       });
       if (payload.global_state) applyCampaignState(payload.global_state as Record<string, unknown>);
       setRunState((prev) => ({ ...prev, currentPhase: "ending", isRunning: false, isPaused: true }));
@@ -413,6 +494,7 @@ export default function App() {
         ? await client.getState(campaignId)
         : await client.createCampaign({
             seed: new URLSearchParams(window.location.search).get("seed") ?? String(Date.now()),
+            story_version: "red_dust_readable_v1",
             branch_policy: new URLSearchParams(window.location.search).get("branch_policy") ?? "auto",
             task_selection: new URLSearchParams(window.location.search).get("task_selection") ?? "random",
             wait_for_start: true
@@ -423,10 +505,11 @@ export default function App() {
         campaignId: campaign.campaign_id,
         prompt,
         connected: Boolean(campaign.connected_agent),
-        latestSeq: Number(campaign.latest_event_seq ?? 0),
+        latestSeq: campaignId ? Number(campaign.latest_event_seq ?? 0) : 0,
         status: campaign.status
       });
       applyCampaignState(campaign.global_state ?? {});
+      applyCurrentCampaignTask(campaign);
       setNotice(`Live campaign ready: ${campaign.campaign_id}. Share the prompt with your agent.`);
     } catch (error) {
       setNotice(`Live campaign failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -476,7 +559,7 @@ export default function App() {
         setEnding({
           title: rawEnding.title ?? "Campaign Complete",
           text: rawEnding.text ?? "Campaign complete.",
-          tone: rawEnding.branch === "rescue" ? "rescue" : "lighthouse"
+          tone: endingTone(rawEnding.branch)
         });
       }
       setRunState((prev) => ({ ...prev, isRunning: false, isPaused: true, currentPhase: "ending" }));
@@ -709,7 +792,7 @@ export default function App() {
       return;
     }
 
-    if (runState.currentDay < 10) {
+    if (runState.currentDay < 12) {
       const nextDay = runState.currentDay + 1;
       setState((prev) => ({ ...prev, day: nextDay }));
       setRunState((prev) => ({ ...prev, currentDay: nextDay, currentPhase: "idle", currentTaskId: undefined }));
@@ -903,16 +986,16 @@ export default function App() {
       </section>
       <section className="intro-dashboard">
         <div>
-          <b>10</b>
-          <span>autoplay days</span>
+          <b>13</b>
+          <span>script days</span>
         </div>
         <div>
           <b>Live</b>
           <span>agent backend</span>
         </div>
         <div>
-          <b>2</b>
-          <span>counterfactual endings</span>
+          <b>5</b>
+          <span>automatic endings</span>
         </div>
         <div>
           <b>63.27</b>
@@ -995,7 +1078,7 @@ export default function App() {
                 <button className="ghost" onClick={stepReplayForward}>
                   Next
                 </button>
-                {[1, 3, 5, 7, 8, 10].map((day) => (
+                {[0, 1, 3, 7, 8, 10, 12].map((day) => (
                   <button className="ghost" key={day} onClick={() => jumpReplayToDay(day)}>
                     D{day}
                   </button>

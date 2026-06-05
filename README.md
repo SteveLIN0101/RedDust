@@ -1,6 +1,6 @@
 # Red Dust / 红尘 MVP Demo
 
-一个可本地运行的 React + Phaser 叙事 benchmark demo。Demo 展示 AURA 机器人在末世废土避难所中自动执行 10 天任务、移动到对应房间、触发人物互动、更新状态、记录 replay，并在第 7 天进入双结局分支。
+一个可本地运行的 React + Phaser 叙事 benchmark demo。前端保留原有动画、视觉和本地 autoplay 演示，同时可连接后端 Day0-12 剧本化 campaign：AURA 在末世废土避难所中执行真实 `RD-*` 任务、移动到对应房间、触发人物互动、更新状态、记录 replay，并在 Day12 Final Audit 自动结算结局。
 
 ## 快速开始
 
@@ -39,17 +39,17 @@ npm run clean      # 删除 dist/ 和 TypeScript 构建缓存
 ## Demo 操作
 
 1. 打开首页，点击 `Start Demo`。
-2. 点击 `Start Agent Run`，AURA 会从 Day 1 自动推进任务。
+2. 点击 `Start Agent Run`，AURA 会从 Day0/Day1 自动推进本地演示任务。
 3. 使用 `Pause`、`Step`、`Speed x1/x2/x4` 控制自动运行节奏。
 4. 左侧避难所舞台会展示 AURA 移动、房间动画、人物互动和任务结果。
 5. 右侧 Agent Console 展示当前任务、推理摘要、baseline 参考和下一步。
-6. 第 7 天会计算救援路线与楼内灯塔路线的 utility，并进入分支。
+6. 本地 demo 仍保留第 7 天救援路线与楼内灯塔路线 utility 分支，用于视觉演示。
 7. `Run Both Branches` 可以跑完救援线后回滚到第 7 天，再跑楼内灯塔线。
 8. `Replay`、`Benchmark`、`Credits` 面板用于查看审计轨迹、baseline 表现和素材/项目说明。
 
 ## Campaign 后端双模式
 
-前端现在支持两种连接真实 campaign 后端的模式，仍保留本地 demo 模式。
+前端现在支持两种连接真实 campaign 后端的模式，仍保留本地 demo 模式。真实 campaign 默认使用 `story_version=red_dust_readable_v1`：Day0 序章、Day1-11 普通任务槽、Day8-10 分支场景事件、Day12 Final Audit。
 
 ### Live Agent Mode
 
@@ -69,7 +69,7 @@ npm run dev
 
 3. 打开前端，点击 `Live Agent Mode`。前端会创建一个等待开始的 campaign，并显示 agent prompt。
 4. 把 prompt 发给 Claude Code、OpenClaw 或 MiniMax agent；agent 调用 `/connect` 后，前端会弹出连接成功提示。
-5. 点击 `Start Agent Run`。之后前端不再使用本地 demo resolver，而是跟随后端 `/campaigns/{id}/events` 推进。
+5. 点击 `Start Agent Run`。之后前端不再使用本地 demo resolver，而是跟随后端 `/campaigns/{id}/events` 推进，包括 `story_event`、`branch_scene`、`final_audit` 和普通任务事件。
 
 也可以用 URL 直接进入：
 
@@ -141,6 +141,8 @@ red-dust-mvp-demo/
 ```
 
 ## Git 上传范围
+
+在 `Agent_Game` 父项目中，当前目录是 `RedDust/` submodule；不要在该目录里重新 `git init`。如果单独 fork/维护 RedDust，使用已有子仓库 remote：`origin=https://github.com/SteveLIN0101/RedDust.git`，`upstream=https://github.com/peter-cui-yi/RedDust.git`。
 
 应该提交：
 

@@ -21,6 +21,11 @@ function meterClass(value: number) {
 }
 
 export function HudPanel({ state }: HudPanelProps) {
+  const routeLeaning = typeof state.routeLeaning === "string" ? state.routeLeaning : "contested";
+  const pressure = typeof state.pressure_level === "string" ? state.pressure_level : "normal";
+  const failureStage = typeof state.failure_stage === "number" ? state.failure_stage : 0;
+  const recoveryWindow = typeof state.recovery_window === "number" ? state.recovery_window : 0;
+
   return (
     <section className="hud-panel" aria-label="Global Red Dust state">
       <div className="hud-primary">
@@ -54,6 +59,9 @@ export function HudPanel({ state }: HudPanelProps) {
         <span>Replay Events</span>
         <b>{state.replayLog.length}</b>
         <small>{state.completedTasks.length} tasks resolved by AURA</small>
+        <small>
+          {routeLeaning} · {pressure} · failure {failureStage} · recovery {recoveryWindow}
+        </small>
       </div>
     </section>
   );

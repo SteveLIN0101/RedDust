@@ -24,8 +24,10 @@ function metric(value: unknown, fallback: number) {
 }
 
 export function campaignStateToGlobalState(raw: Record<string, unknown>, previous: GlobalState = initialState): GlobalState {
+  const branch = asBranch(raw.branch ?? previous.branch);
   return {
     ...previous,
+    ...raw,
     day: metric(raw.day, previous.day),
     water: metric(raw.water, previous.water),
     medicine: metric(raw.medicine, previous.medicine),
@@ -33,7 +35,7 @@ export function campaignStateToGlobalState(raw: Record<string, unknown>, previou
     safety: metric(raw.safety, previous.safety),
     signal: metric(raw.signal, previous.signal),
     morale: metric(raw.morale, previous.morale),
-    branch: asBranch(raw.branch ?? previous.branch),
+    branch,
     completedTasks: previous.completedTasks,
     replayLog: previous.replayLog
   };
@@ -45,7 +47,7 @@ export function frontendTaskToRedDustTask(task: CampaignFrontendTask): RedDustTa
   return {
     id: task.id,
     title: task.title,
-    day: Number(task.day || 1),
+    day: Number(task.day ?? 1),
     category: asCategory(task.category),
     location: asLocation(task.location),
     description: task.description ?? "",
@@ -68,7 +70,7 @@ export function replayItemToOutcome(item: CampaignReplayItem): TaskOutcome {
     taskId: item.outcome.taskId,
     result: item.outcome.result,
     scoreLabel: item.outcome.scoreLabel,
-    stateDelta: item.outcome.stateDelta,
+    stateDelta: item.outcome.stateDelta ?? {},
     explanation: item.outcome.explanation
   };
 }
@@ -80,13 +82,13 @@ export function replayItemToReplayEvent(item: CampaignReplayItem): ReplayEvent {
   const time = typeof raw.time === "string" ? raw.time : new Date().toLocaleTimeString("zh-CN", { hour12: false });
   return {
     time,
-    day: Number(task.day || raw.day || 1),
+    day: Number(task.day ?? raw.day ?? 1),
     branch: asBranch(task.branch ?? raw.branch),
     taskId: task.id,
     title: task.title,
     decision: task.agentAction ?? `Agent completed ${task.real_task_id ?? task.id}`,
     result: `${outcome.result.toUpperCase()} | ${outcome.scoreLabel}`,
-    stateDelta: outcome.stateDelta as Record<string, number>,
+    stateDelta: outcome.stateDelta,
     explanation: outcome.explanation
   };
 }
@@ -111,16 +113,17 @@ export function applyReplayItems(items: CampaignReplayItem[], index: number, pre
 
 export function buildAgentPrompt(baseUrl: string, campaignId: string) {
   return [
-    "你正在连接 Red Dust / 红尘 10 天 campaign 后端。请作为 AURA agent 玩完整轮游戏。",
+    "你正在连接 Red Dust / 红尘 Day0-12 剧本化 campaign 后端。请作为 AURA agent 玩完整轮游戏。",
     "",
     `Base URL: ${baseUrl}`,
     `Campaign ID: ${campaignId}`,
+    "Story version: red_dust_readable_v1",
     "",
     "连接步骤：",
     `1. POST ${baseUrl}/campaigns/${campaignId}/connect`,
     '   body: {"agent_id":"<你的名字>","model_id":"<模型/API>","client":"claude-code/openclaw/minimax"}',
     `2. 等待前端点击 Start Agent Run。期间 GET ${baseUrl}/campaigns/${campaignId}/state，直到 status 不再是 waiting_for_start。`,
-    `3. 每个任务循环：GET ${baseUrl}/campaigns/${campaignId}/brief，按 brief 只输出一个 JSON action。`,
+    `3. 每个普通任务循环：GET ${baseUrl}/campaigns/${campaignId}/brief，按 brief 只输出一个 JSON action。Day0 序章、分支场景和 Day12 Final Audit 由后端事件流自动推进。`,
     `4. POST ${baseUrl}/campaigns/${campaignId}/actions，body 就是 {"tool":"...","args":{...}}。`,
     '5. 当前任务满足标准后，POST actions: {"tool":"submit","args":{}}，或 POST /submit。',
     "6. campaign complete 后停止，报告 trace/report URL。",

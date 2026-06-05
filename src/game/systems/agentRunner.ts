@@ -42,7 +42,7 @@ export function createInitialRunState(speed: 1 | 2 | 4 = 1): AgentRunState {
     isRunning: false,
     isPaused: false,
     speed,
-    currentDay: 1,
+    currentDay: 0,
     currentPhase: "idle",
     activeBranch: "common",
     runMode: "single",
@@ -68,7 +68,8 @@ export function getNextTaskId(runState: AgentRunState) {
 
 export function isDayComplete(runState: AgentRunState) {
   const ids = getDayTaskIds(runState.currentDay, runState.activeBranch);
-  return ids.length > 0 && ids.every((id) => ["success", "partial", "failed", "missing", "skipped"].includes(runState.taskStatuses[id]));
+  if (ids.length === 0) return Boolean(dayPlansByDay[runState.currentDay]);
+  return ids.every((id) => ["success", "partial", "failed", "missing", "skipped"].includes(runState.taskStatuses[id]));
 }
 
 export function calculateBranchDecision(state: GlobalState): BranchDecision {

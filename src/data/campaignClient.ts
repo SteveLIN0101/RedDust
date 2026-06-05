@@ -1,4 +1,4 @@
-import type { Branch, MetricKey, TaskLocation } from "./types";
+import type { Branch, TaskLocation } from "./types";
 
 export type CampaignEvent = {
   seq: number;
@@ -14,6 +14,9 @@ export type CampaignEvent = {
     | "day_changed"
     | "branch_changed"
     | "branch_decided"
+    | "story_event"
+    | "branch_scene"
+    | "final_audit"
     | "campaign_complete";
   campaign_id: string;
   payload: Record<string, unknown>;
@@ -46,7 +49,7 @@ export type CampaignReplayItem = {
     taskId: string;
     result: "success" | "partial" | "failed" | "missing";
     scoreLabel: string;
-    stateDelta: Partial<Record<MetricKey, number>>;
+    stateDelta: Record<string, number>;
     explanation: string;
   };
   replay_event: Record<string, unknown>;
@@ -59,8 +62,12 @@ export type CampaignTrace = {
   replay_log: Record<string, unknown>[];
   frontend_trace?: CampaignReplayItem[];
   events?: CampaignEvent[];
-  ending?: { title?: string; text?: string; branch?: Branch };
+  ending?: { title?: string; text?: string; branch?: Branch; ending_key?: string; audit?: Record<string, unknown> };
   branch_decision?: Record<string, unknown>;
+  story_version?: string;
+  story_flags?: string[];
+  story_unlocks?: string[];
+  routeLeaning?: string;
 };
 
 export type CampaignState = CampaignTrace & {

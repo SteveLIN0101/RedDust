@@ -13,11 +13,13 @@ export function DayTimeline({ runState }: DayTimelineProps) {
         const isCurrent = runState.currentDay === plan.day;
         const isDone = runState.currentDay > plan.day || (runState.currentDay === plan.day && runState.currentPhase === "ending");
         const isBranch = plan.day === 7;
+        const isAudit = plan.day === 12;
+        const label = plan.day === 0 ? "Prologue" : isAudit ? "Audit" : isBranch ? "Branch" : `Day ${plan.day}`;
         return (
           <div className={`timeline-node ${isCurrent ? "current" : ""} ${isDone ? "done" : ""} ${isBranch ? "branch" : ""}`} key={plan.day}>
             <img alt="" className="timeline-node-art" src={generatedAssetByName["timeline-node"].uiPath} />
-            <span>{isDone ? "✓" : isBranch ? "◇" : plan.day}</span>
-            <b>{plan.day === 7 ? "Branch" : `Day ${plan.day}`}</b>
+            <span>{isDone ? "✓" : isAudit ? "◎" : isBranch ? "◇" : plan.day}</span>
+            <b>{label}</b>
           </div>
         );
       })}

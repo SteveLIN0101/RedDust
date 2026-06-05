@@ -1,6 +1,8 @@
 export type Branch = "common" | "rescue" | "lighthouse";
 
-export type MetricKey = "water" | "medicine" | "trust" | "safety" | "signal" | "morale";
+export type CoreMetricKey = "water" | "medicine" | "trust" | "safety" | "signal" | "morale";
+
+export type MetricKey = string;
 
 export type TaskRunStatus =
   | "locked"
@@ -41,6 +43,7 @@ export type ReplayEvent = {
 };
 
 export type GlobalState = {
+  [key: string]: unknown;
   day: number;
   water: number;
   medicine: number;
@@ -79,7 +82,7 @@ export type TaskOutcome = {
   taskId: string;
   result: "success" | "partial" | "failed" | "missing";
   scoreLabel: string;
-  stateDelta: Partial<Record<MetricKey, number>>;
+  stateDelta: Record<string, number>;
   explanation: string;
 };
 
@@ -121,6 +124,6 @@ export type RedDustTask = {
   expectedEvidence?: string[];
   openclawScore?: number;
   status: "passed" | "partial" | "failed" | "missing" | "demo";
-  affects: Partial<Record<MetricKey, number>>;
+  affects: Partial<Record<CoreMetricKey, number>>;
   branchAffinity?: "rescue" | "lighthouse" | "neutral";
 };

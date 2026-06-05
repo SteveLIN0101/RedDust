@@ -1194,6 +1194,22 @@ img {
   color: var(--muted);
 }
 
+.campaign-link-panel textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  border: 1px solid rgba(223, 211, 187, 0.24);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(19, 24, 29, 0.84);
+  color: var(--text);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.campaign-link-panel .control-row {
+  flex-wrap: wrap;
+}
+
 @media (max-width: 1080px) {
   .hud-panel,
   .play-layout,

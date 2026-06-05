@@ -47,6 +47,62 @@ npm run clean      # 删除 dist/ 和 TypeScript 构建缓存
 7. `Run Both Branches` 可以跑完救援线后回滚到第 7 天，再跑楼内灯塔线。
 8. `Replay`、`Benchmark`、`Credits` 面板用于查看审计轨迹、baseline 表现和素材/项目说明。
 
+## Campaign 后端双模式
+
+前端现在支持两种连接真实 campaign 后端的模式，仍保留本地 demo 模式。
+
+### Live Agent Mode
+
+1. 启动 campaign 后端：
+
+```bash
+cd /Users/steve/Documents/2026Spring/Agent_Game
+PYTHONPATH=. /Users/steve/miniconda3/envs/agent_game/bin/python scripts/run_reddust_lan_server.py --port 7001
+```
+
+2. 启动前端：
+
+```bash
+cd /Users/steve/Documents/2026Spring/Agent_Game/RedDust
+npm run dev
+```
+
+3. 打开前端，点击 `Live Agent Mode`。前端会创建一个等待开始的 campaign，并显示 agent prompt。
+4. 把 prompt 发给 Claude Code、OpenClaw 或 MiniMax agent；agent 调用 `/connect` 后，前端会弹出连接成功提示。
+5. 点击 `Start Agent Run`。之后前端不再使用本地 demo resolver，而是跟随后端 `/campaigns/{id}/events` 推进。
+
+也可以用 URL 直接进入：
+
+```text
+http://127.0.0.1:5176/?mode=live&api=http://127.0.0.1:7001
+```
+
+如果使用本仓库 OpenClaw runner 连接前端创建的 campaign：
+
+```bash
+PYTHONPATH=. /Users/steve/miniconda3/envs/agent_game/bin/python scripts/run_reddust_campaign_agent.py \
+  --base-url http://127.0.0.1:7001 \
+  --campaign-id rdcamp-... \
+  --connect-agent \
+  --wait-for-start
+```
+
+### Replay Mode
+
+Replay 可读取已完成 campaign 的 trace，不需要重新跑 agent。
+
+```text
+http://127.0.0.1:5176/?mode=replay&api=http://127.0.0.1:7001&campaign_id=rdcamp-...
+```
+
+或直接传 trace URL：
+
+```text
+http://127.0.0.1:5176/?mode=replay&trace_url=http://127.0.0.1:7001/campaigns/rdcamp-.../trace
+```
+
+Replay 支持自动播放、暂停、Step、Back、Speed x1/x2/x4，以及跳转到指定 Day。服务重启后，只要 `runs/reddust_campaigns/<campaign_id>/campaign.json` 还在，后端会以只读方式提供 trace/report。
+
 ## 当前视觉内容
 
 运行中的 Phaser 舞台使用 `public/assets/generated/image2/` 下的 bitmap 素材：

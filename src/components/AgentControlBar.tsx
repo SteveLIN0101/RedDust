@@ -5,6 +5,7 @@ type AgentControlBarProps = {
   onStart: () => void;
   onPause: () => void;
   onStep: () => void;
+  onBack?: () => void;
   onSpeed: (speed: 1 | 2 | 4) => void;
   onReset: () => void;
   onRunBoth: () => void;
@@ -18,6 +19,7 @@ export function AgentControlBar({
   onStart,
   onPause,
   onStep,
+  onBack,
   onSpeed,
   onReset,
   onRunBoth,
@@ -37,6 +39,11 @@ export function AgentControlBar({
           <button className="ghost" onClick={onStep}>
             Step
           </button>
+          {onBack ? (
+            <button className="ghost" onClick={onBack}>
+              Back
+            </button>
+          ) : null}
           <button className="ghost" onClick={onReset}>
             Reset Run
           </button>

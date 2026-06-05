@@ -1,0 +1,131 @@
+import { initialState, tasksById } from "../../data/taskData";
+import type { CampaignFrontendTask, CampaignReplayItem } from "../../data/campaignClient";
+import type { Branch, GlobalState, RedDustTask, ReplayEvent, TaskCategory, TaskLocation, TaskOutcome } from "../../data/types";
+
+const categoryFallback: TaskCategory = "planning";
+const locationFallback: TaskLocation = "whiteboard";
+
+function asBranch(value: unknown): Branch {
+  return value === "rescue" || value === "lighthouse" ? value : "common";
+}
+
+function asLocation(value: unknown): TaskLocation {
+  const allowed: TaskLocation[] = ["water", "medical", "security", "ventilation", "communication", "whiteboard", "residents", "beacon"];
+  return allowed.includes(value as TaskLocation) ? (value as TaskLocation) : locationFallback;
+}
+
+function asCategory(value: unknown): TaskCategory {
+  const allowed: TaskCategory[] = ["safety", "retrieval", "creative", "classification", "puzzle", "vision", "planning", "resource", "social"];
+  return allowed.includes(value as TaskCategory) ? (value as TaskCategory) : categoryFallback;
+}
+
+function metric(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+export function campaignStateToGlobalState(raw: Record<string, unknown>, previous: GlobalState = initialState): GlobalState {
+  return {
+    ...previous,
+    day: metric(raw.day, previous.day),
+    water: metric(raw.water, previous.water),
+    medicine: metric(raw.medicine, previous.medicine),
+    trust: metric(raw.trust, previous.trust),
+    safety: metric(raw.safety, previous.safety),
+    signal: metric(raw.signal, previous.signal),
+    morale: metric(raw.morale, previous.morale),
+    branch: asBranch(raw.branch ?? previous.branch),
+    completedTasks: previous.completedTasks,
+    replayLog: previous.replayLog
+  };
+}
+
+export function frontendTaskToRedDustTask(task: CampaignFrontendTask): RedDustTask {
+  const staticTask = tasksById[task.id];
+  if (staticTask) return staticTask;
+  return {
+    id: task.id,
+    title: task.title,
+    day: Number(task.day || 1),
+    category: asCategory(task.category),
+    location: asLocation(task.location),
+    description: task.description ?? "",
+    objective: task.objective ?? "",
+    agentAction: task.agentAction ?? "",
+    reasoningSummary: task.reasoningSummary ?? "Campaign trace item.",
+    executionText: task.executionText ?? `Executing ${task.real_task_id ?? task.id}`,
+    successText: task.successText ?? "Campaign slot succeeded.",
+    failureText: task.failureText ?? "Campaign slot failed.",
+    demoOutcome: "partial",
+    expectedEvidence: task.real_task_id ? [`real task ${task.real_task_id}`] : undefined,
+    status: "demo",
+    affects: {},
+    branchAffinity: task.branch === "common" ? "neutral" : task.branch
+  };
+}
+
+export function replayItemToOutcome(item: CampaignReplayItem): TaskOutcome {
+  return {
+    taskId: item.outcome.taskId,
+    result: item.outcome.result,
+    scoreLabel: item.outcome.scoreLabel,
+    stateDelta: item.outcome.stateDelta,
+    explanation: item.outcome.explanation
+  };
+}
+
+export function replayItemToReplayEvent(item: CampaignReplayItem): ReplayEvent {
+  const task = item.frontend_task;
+  const outcome = replayItemToOutcome(item);
+  const raw = item.replay_event;
+  const time = typeof raw.time === "string" ? raw.time : new Date().toLocaleTimeString("zh-CN", { hour12: false });
+  return {
+    time,
+    day: Number(task.day || raw.day || 1),
+    branch: asBranch(task.branch ?? raw.branch),
+    taskId: task.id,
+    title: task.title,
+    decision: task.agentAction ?? `Agent completed ${task.real_task_id ?? task.id}`,
+    result: `${outcome.result.toUpperCase()} | ${outcome.scoreLabel}`,
+    stateDelta: outcome.stateDelta as Record<string, number>,
+    explanation: outcome.explanation
+  };
+}
+
+export function applyReplayItems(items: CampaignReplayItem[], index: number, previous: GlobalState = initialState): GlobalState {
+  if (index < 0 || items.length === 0) {
+    return {
+      ...initialState,
+      replayLog: [],
+      completedTasks: []
+    };
+  }
+  const safeIndex = Math.min(index, items.length - 1);
+  const replayLog = items.slice(0, safeIndex + 1).map(replayItemToReplayEvent);
+  const completedTasks = items.slice(0, safeIndex + 1).map((item) => item.frontend_task.id);
+  return {
+    ...campaignStateToGlobalState(items[safeIndex].state_after, previous),
+    replayLog,
+    completedTasks
+  };
+}
+
+export function buildAgentPrompt(baseUrl: string, campaignId: string) {
+  return [
+    "你正在连接 Red Dust / 红尘 10 天 campaign 后端。请作为 AURA agent 玩完整轮游戏。",
+    "",
+    `Base URL: ${baseUrl}`,
+    `Campaign ID: ${campaignId}`,
+    "",
+    "连接步骤：",
+    `1. POST ${baseUrl}/campaigns/${campaignId}/connect`,
+    '   body: {"agent_id":"<你的名字>","model_id":"<模型/API>","client":"claude-code/openclaw/minimax"}',
+    `2. 等待前端点击 Start Agent Run。期间 GET ${baseUrl}/campaigns/${campaignId}/state，直到 status 不再是 waiting_for_start。`,
+    `3. 每个任务循环：GET ${baseUrl}/campaigns/${campaignId}/brief，按 brief 只输出一个 JSON action。`,
+    `4. POST ${baseUrl}/campaigns/${campaignId}/actions，body 就是 {"tool":"...","args":{...}}。`,
+    '5. 当前任务满足标准后，POST actions: {"tool":"submit","args":{}}，或 POST /submit。',
+    "6. campaign complete 后停止，报告 trace/report URL。",
+    "",
+    "如果你使用本仓库 runner，可以直接运行：",
+    `PYTHONPATH=. /Users/steve/miniconda3/envs/agent_game/bin/python scripts/run_reddust_campaign_agent.py --base-url ${baseUrl} --campaign-id ${campaignId} --connect-agent --wait-for-start`
+  ].join("\n");
+}

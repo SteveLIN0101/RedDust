@@ -19,6 +19,11 @@ export type BranchDecision = {
   rescueUtility: number;
   lighthouseUtility: number;
   chosenBranch: Exclude<Branch, "common">;
+  routeLeaning: Exclude<Branch, "common"> | "contested";
+  margin: number;
+  rescueEvidence: string[];
+  lighthouseEvidence: string[];
+  unacceptableConditions: string[];
 };
 
 export type BranchSummary = {
@@ -73,12 +78,49 @@ export function isDayComplete(runState: AgentRunState) {
 }
 
 export function calculateBranchDecision(state: GlobalState): BranchDecision {
-  const rescueUtility = state.signal * 0.45 + state.safety * 0.3 + state.trust * 0.25;
-  const lighthouseUtility = state.morale * 0.35 + state.medicine * 0.3 + state.trust * 0.25 + state.safety * 0.1;
+  const rescueConfidence = typeof state.rescue_confidence === "number" ? state.rescue_confidence : 0;
+  const routeConfidence = typeof state.route_confidence === "number" ? state.route_confidence : 0;
+  const lighthouseReadiness = typeof state.lighthouse_readiness === "number" ? state.lighthouse_readiness : 0;
+  const autonomyReadiness = typeof state.autonomy_readiness === "number" ? state.autonomy_readiness : 0;
+  const sacrificeListRisk = typeof state.sacrifice_list_risk === "number" ? state.sacrifice_list_risk : 35;
+  const medicalPressure = typeof state.medical_pressure === "number" ? state.medical_pressure : 25;
+  const powerStability = typeof state.power_stability === "number" ? state.power_stability : 0;
+  const rescueUtility =
+    state.signal * 0.3 + state.safety * 0.18 + state.trust * 0.18 + rescueConfidence * 0.2 + routeConfidence * 0.14;
+  const lighthouseUtility =
+    state.morale * 0.22 +
+    state.medicine * 0.18 +
+    state.trust * 0.16 +
+    state.safety * 0.14 +
+    autonomyReadiness * 0.16 +
+    lighthouseReadiness * 0.14;
+  const margin = Math.abs(rescueUtility - lighthouseUtility);
+  const chosenBranch = rescueUtility >= lighthouseUtility ? "rescue" : "lighthouse";
+  const routeLeaning = margin < 6 || state.trust < 35 || sacrificeListRisk > 35 ? "contested" : chosenBranch;
+  const rescueEvidence = [
+    `Signal ${state.signal}/100`,
+    `Rescue evidence ${rescueConfidence}/100`,
+    `Route confidence ${routeConfidence}/100`
+  ];
+  const lighthouseEvidence = [
+    `Autonomy ${autonomyReadiness}/100`,
+    `Lighthouse readiness ${lighthouseReadiness}/100`,
+    `Power stability ${powerStability}/100`
+  ];
+  const unacceptableConditions = [
+    sacrificeListRisk > 30 ? "Care list still risks becoming an elimination ranking." : "Care plan blocks elimination ranking.",
+    medicalPressure > 35 ? "Medical pressure requires Shen Zhiyue review before movement." : "Medical pressure is reviewable.",
+    state.signal < 35 ? "Blue-zone signal remains unconfirmed." : "Signal evidence improved, still not absolute."
+  ];
   return {
     rescueUtility,
     lighthouseUtility,
-    chosenBranch: rescueUtility >= lighthouseUtility ? "rescue" : "lighthouse"
+    chosenBranch,
+    routeLeaning,
+    margin,
+    rescueEvidence,
+    lighthouseEvidence,
+    unacceptableConditions
   };
 }
 

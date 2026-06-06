@@ -1048,6 +1048,11 @@ img {
   border-color: rgba(143, 234, 255, 0.28);
 }
 
+.candidate-card.critical_optional {
+  border-color: rgba(255, 138, 138, 0.4);
+  background: rgba(68, 22, 24, 0.28);
+}
+
 .candidate-card span {
   display: block;
   color: var(--aura);
@@ -1062,6 +1067,10 @@ img {
 
 .candidate-card.optional span {
   color: var(--aura);
+}
+
+.candidate-card.critical_optional span {
+  color: #ffb0a8;
 }
 
 .candidate-card b {
@@ -1697,6 +1706,23 @@ img {
   font-size: 34px;
 }
 
+.route-fork-notes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 8px 0 2px;
+}
+
+.route-fork-notes span {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .utility-icon {
   display: block;
   width: 38px;
@@ -2077,6 +2103,10 @@ img {
   .utility-icon {
     width: 12px;
     height: 12px;
+  }
+
+  .route-fork-notes {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .hud-summary {

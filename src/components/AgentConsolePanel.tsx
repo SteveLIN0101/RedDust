@@ -17,7 +17,8 @@ type AgentConsolePanelProps = {
 const priorityLabels = {
   recommended: "推荐优先",
   conditional: "条件执行",
-  optional: "可选候选"
+  optional: "可选候选",
+  critical_optional: "关键可选"
 };
 
 function formatStateMetric(state: GlobalState, key: string, fallback?: string, unit?: string) {
@@ -44,7 +45,7 @@ export function AgentConsolePanel({
   const scriptCopy = currentStory ? dayScript : task ? getScriptSceneForTask(task) : dayScript;
   const dayCandidates = getDayScriptCandidates(activeDay);
   const activeCandidate = task ? getScriptCandidateForTask(task) : null;
-  const showScriptDashboard = activeDay <= 6 && (dayCandidates.length > 0 || Boolean(dayScript.statusMetrics?.length));
+  const showScriptDashboard = activeDay <= 7 && (dayCandidates.length > 0 || Boolean(dayScript.statusMetrics?.length));
   const metricReadouts = (dayScript.statusMetrics ?? []).slice(0, 6);
   const evidencePanels = (dayScript.evidencePanels ?? []).slice(0, 4);
   const identityLabel =

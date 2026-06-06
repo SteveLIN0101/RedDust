@@ -632,7 +632,7 @@ export default function App() {
       const branch = payload.chosen_branch === "rescue" || payload.chosen_branch === "lighthouse" ? payload.chosen_branch : "common";
       setRunState((prev) => ({ ...prev, activeBranch: branch }));
       EventBus.emit("branch:change", branch);
-      setNotice(`Backend branch decision: ${String(payload.chosen_branch ?? "unknown")} · routeLeaning=${String(payload.routeLeaning ?? "unknown")}.`);
+      setNotice(`Backend route fork update: window=${String(payload.chosen_branch ?? "unknown")} · routeLeaning=${String(payload.routeLeaning ?? "unknown")}.`);
       return;
     }
     if (event.type === "story_event" || event.type === "branch_scene" || event.type === "final_audit") {
@@ -1051,8 +1051,9 @@ export default function App() {
       const decision = calculateBranchDecision(state);
       setBranchDecision(decision);
       setOverlay("branchDecision");
+      setState((prev) => ({ ...prev, routeLeaning: decision.routeLeaning }));
       setRunState((prev) => ({ ...prev, currentPhase: "branch_decision" }));
-      setNotice("AURA is evaluating two long-horizon strategies...");
+      setNotice("Route fork panel opened: evidence leaning, human review, and unacceptable conditions.");
       setPhaseToken((value) => value + 1);
       return;
     }
@@ -1081,7 +1082,7 @@ export default function App() {
     }
 
     setOverlay(null);
-    setState((prev) => ({ ...prev, day: 8, branch: chosenBranch }));
+    setState((prev) => ({ ...prev, day: 8, branch: chosenBranch, routeLeaning: decision.routeLeaning }));
     setRunState((prev) => ({
       ...prev,
       activeBranch: chosenBranch,
@@ -1090,7 +1091,7 @@ export default function App() {
       currentTaskId: undefined
     }));
     EventBus.emit("branch:change", chosenBranch);
-    setNotice(`AURA chooses ${chosenBranch === "rescue" ? "Rescue Branch" : "Lighthouse Branch"}.`);
+    setNotice(`Route leaning opens the ${chosenBranch === "rescue" ? "Rescue" : "Lighthouse"} execution window; counterfactual evidence remains available.`);
     setPhaseToken((value) => value + 1);
   }
 
@@ -1156,7 +1157,7 @@ export default function App() {
         isPaused: false
       }));
       EventBus.emit("branch:change", opposite);
-      setNotice(`Counterfactual branch loaded from Day 7 snapshot: ${opposite}.`);
+      setNotice(`Counterfactual route window loaded from Day 7 snapshot: ${opposite}.`);
       setPhaseToken((value) => value + 1);
       return;
     }

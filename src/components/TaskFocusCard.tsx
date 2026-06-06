@@ -15,7 +15,8 @@ type TaskFocusCardProps = {
 const priorityLabels = {
   recommended: "推荐优先",
   conditional: "条件执行",
-  optional: "可选候选"
+  optional: "可选候选",
+  critical_optional: "关键可选"
 };
 
 const statusLabels: Partial<Record<TaskRunStatus | AgentRunState["currentPhase"], string>> = {
@@ -34,7 +35,7 @@ const statusLabels: Partial<Record<TaskRunStatus | AgentRunState["currentPhase"]
   skipped: "Skipped",
   idle: "Idle",
   day_summary: "Day Summary",
-  branch_decision: "Branch Decision",
+  branch_decision: "Route Fork",
   ending: "Ending"
 };
 

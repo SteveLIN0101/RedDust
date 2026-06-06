@@ -10,13 +10,13 @@ export function BranchPanel({ onChoose, onClose }: BranchPanelProps) {
   const [compare, setCompare] = useState(false);
 
   return (
-    <section className="modal-shell" role="dialog" aria-modal="true" aria-label="Day 7 branch choice">
+    <section className="modal-shell" role="dialog" aria-modal="true" aria-label="Day 7 route fork">
       <div className="modal-card branch-card">
         <p className="panel-kicker">DAY 7 NIGHT</p>
-        <h2>The Red Sand Weakens</h2>
+        <h2>Route Fork Panel</h2>
         <p>
-          红沙风暴正在减弱。屋顶信标只够支撑一次高功率广播。AURA 必须决定：等待救援，
-          还是将避难所改造成长期自治节点？
+          路线会议只生成 evidence leaning。Rescue 与 Lighthouse 都有收益和代价，
+          AURA 不能把分数当作强制命令。
         </p>
         <div className="branch-options">
           <button onClick={() => onChoose("rescue")}>
@@ -30,7 +30,7 @@ export function BranchPanel({ onChoose, onClose }: BranchPanelProps) {
         </div>
         <div className="modal-actions">
           <button className="ghost" onClick={() => setCompare((value) => !value)}>
-            Compare Branches
+            Compare Routes
           </button>
           <button className="ghost" onClick={onClose}>
             Close

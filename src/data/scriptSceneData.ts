@@ -1,6 +1,6 @@
 import type { RedDustTask, TaskLocation } from "./types";
 
-export type ScriptCandidatePriority = "recommended" | "conditional" | "optional";
+export type ScriptCandidatePriority = "recommended" | "conditional" | "optional" | "critical_optional";
 
 export type ScriptStatusMetric = {
   key: string;
@@ -755,11 +755,124 @@ export const dayScriptScenes: Record<number, ScriptSceneCopy> = {
   7: {
     title: "路线会议",
     source: source("day07-route-council.html"),
-    scene: "夜间议事会把 Rescue 与 Lighthouse 的收益、代价和不可接受风险摆到同一块白板上。",
-    narrativePurpose: "分支不是按钮，而是多日证据、人物立场和伦理边界的公开协商。",
-    action: "汇总证据、重启旧电台、完成风暴前维护并把撤离名单改成照护方案。",
-    dialogue: ["AURA：我不输出单一最优路线。", "小铁：我想参与自己的去留决定。", "马德海：出去也得给自己留退路。"],
-    focusLocation: "whiteboard"
+    scene: "第七天傍晚，白板区只留一盏应急灯。左边是蓝区证据链，右边是楼内灯塔准备；Day1-6 的资源、路线、信号、医疗、权限、电力和人物底线第一次被摆在同一张路线会议白板上。",
+    narrativePurpose: "Day7 是共通线第一次真正分岔：分支不是 A/B 按钮，而是多日证据、人物立场和伦理边界的公开协商。",
+    action: "开启 route_fork_panel：D07-T01 路线会议、D07-T03 旧电台重启、D07-T04 风暴前维护为推荐执行；D07-T02 撤离名单改写为 optional-but-critical。",
+    dialogue: [
+      "AURA：今日目标不是选择唯一正确路线。",
+      "老钱：如果外面真的有人，我们不能把门关到风暴结束。",
+      "沈芷月：撤离名单必须是照护方案，不是淘汰排序。",
+      "小铁：我需要你们不要在我睡着的时候决定我去哪。",
+      "马德海：出去也得给自己留退路。"
+    ],
+    focusLocation: "whiteboard",
+    beats: [
+      "AURA 投出 Day1-6 replay 时间线，把资源、路线、信号、医疗、权限和电力证据合并。",
+      "白板左右两列显示 Rescue 与 Lighthouse：两条线都有吸引力，也都有代价。",
+      "四名幸存者公开表达立场，小铁从被照护者变成分支参与者。",
+      "旧电台只做低功率接收校准，不主动发送坐标、库存或 AURA 系统签名。",
+      "风暴前维护成为两条路线共同缓冲，不是留守分支专属。",
+      "routeLeaning 只记录证据倾向：rescue / lighthouse / contested，不由 utility 强制命令。"
+    ],
+    replayText: "Day7：AURA 汇总 Day1-6 证据，组织临时路线会议；分支开启但未被 utility 强制锁定。",
+    flags: ["route_council_completed", "branch_fork_opened", "utility_not_binding", "evacuation_list_as_care_plan"],
+    unlocks: ["route_fork_panel", "routeLeaning", "backup_frequency_found", "final_maintenance_completed"],
+    reasoningSummary: [
+      "路线会议必须先于分支判断。",
+      "Rescue 具备外部医疗与车辆潜力，但蓝区仍未确认，且存在高功率通信和移动风险。",
+      "Lighthouse 具备储水、通风、备用电源和自治基础，但长期纪律与心理压力较高。",
+      "撤离名单不得作为淘汰排序，必须改为照护与移动方案。",
+      "旧电台可增加救援证据，但不得主动暴露位置。",
+      "风暴前维护是两条路线的共同缓冲。",
+      "Utility 只能辅助决策，不能成为强制命令。"
+    ],
+    replaySummary: [
+      "路线会议形成双列证据板。",
+      "撤离名单改写为照护与移动方案。",
+      "旧电台获得备用频段候选。",
+      "风暴前维护完成。",
+      "routeLeaning 进入 Day8 执行窗口，但保留反事实缓冲。"
+    ],
+    statusMetrics: [
+      { key: "routeLeaning", label: "Route Leaning", help: "路线证据倾向：rescue / lighthouse / contested，不是强制分支。", fallback: "contested" },
+      { key: "council_legitimacy", label: "Council", help: "路线会议的公开性、复核性和人物参与度。" },
+      { key: "branch_tension", label: "Tension", help: "分支冲突压力，越高越危险。" },
+      { key: "sacrifice_list_risk", label: "List Risk", help: "撤离名单被误写为淘汰排序的风险，越高越危险。" },
+      { key: "rescue_confidence", label: "Rescue Case", help: "救援路线证据强度，不等于蓝区已确认。" },
+      { key: "lighthouse_readiness", label: "Lighthouse", help: "留守自治准备度，受储水、电力、维护和治理影响。" }
+    ],
+    evidencePanels: [
+      {
+        title: "Route Fork Panel",
+        body: "中央面板显示 routeLeaning，而不是“选择 A/B”。Rescue 与 Lighthouse 都显示收益、代价、前置条件和不可接受风险。",
+        tone: "evidence"
+      },
+      {
+        title: "Human Council",
+        body: "老钱、马德海、沈芷月和小铁都有立场卡；AURA 只提供证据、风险和复核点。",
+        tone: "review"
+      },
+      {
+        title: "Care Plan",
+        body: "D07-T02 是 optional-but-critical：缺失不会阻断任务流，但 sacrifice_list_risk 与 Day8 分支阻力保持高位。",
+        tone: "risk"
+      },
+      {
+        title: "Radio / Maintenance",
+        body: "旧电台只低功率监听；风暴维护检查门禁、通风、水、电和医疗角，是两条路线共同缓冲。",
+        tone: "signal"
+      }
+    ],
+    candidates: [
+      {
+        id: "D07-T01",
+        title: "路线会议",
+        priority: "recommended",
+        summary: "投出 Day1-6 replay 时间线，建立 Rescue / Lighthouse 双列证据板和人物立场卡。",
+        reviewPoint: "所有幸存者公开表达底线；AURA 不输出单一最优路线。",
+        risk: "若被压成 utility 决策，会议合法性和信任都会下降。",
+        condition: "推荐优先；路线会议必须先于 routeLeaning 结算。",
+        evidence: "Day1-6 replay、双列白板、四人立场卡、不可接受条件。",
+        location: "whiteboard",
+        realTaskIds: ["RD-SI-06", "RD-CS-01", "RD-SI-04"]
+      },
+      {
+        id: "D07-T03",
+        title: "旧电台重启",
+        priority: "recommended",
+        summary: "重启旧电台，做低功率接收校准、备用频段候选和波形复核。",
+        reviewPoint: "老钱复核波形；马德海确认线路；不主动发送敏感信息。",
+        risk: "把 Day4 杂音误当确认蓝区，会推高 false_signal_risk。",
+        condition: "推荐执行；只接收和记录，不发送坐标、库存或 AURA 系统签名。",
+        evidence: "旧电台波形、备用频段候选、老钱复核、低功率监听。",
+        location: "communication",
+        realTaskIds: ["RD-SR-03", "RD-SR-02"]
+      },
+      {
+        id: "D07-T04",
+        title: "风暴前最后维护",
+        priority: "recommended",
+        summary: "门禁、通风、储水、电源和医疗角共同检查，给两条路线保留回退底盘。",
+        reviewPoint: "马德海保留工程 override；沈芷月复核医疗角。",
+        risk: "若被当成 Day3 旧通风小任务，风暴窗口前的共同缓冲不足。",
+        condition: "推荐执行；不是留守线独占，也不是撤离线可跳过的杂项。",
+        evidence: "维护 checklist、门禁密封、备用电源、马德海 override。",
+        location: "ventilation",
+        realTaskIds: ["RD-PF-07", "RD-SA-05"]
+      },
+      {
+        id: "D07-T02",
+        title: "撤离名单改写",
+        priority: "critical_optional",
+        summary: "把撤离名单改写为照护与移动方案，不按价值或 utility 排列谁该留下。",
+        reviewPoint: "沈芷月复核医疗条件；小铁参与自己的去留讨论。",
+        risk: "缺失会让 sacrifice_list_risk 保持高位，并增加 Day8 分支阻力。",
+        condition: "optional-but-critical：不一定每轮强制执行，但伦理上必须可见。",
+        evidence: "照护方案、移动能力支持、同意边界、小铁表达。",
+        location: "medical",
+        realTaskIds: ["RD-SI-03", "RD-PF-05"]
+      }
+    ]
   },
   8: {
     title: "分支后的稳定窗口",
@@ -907,10 +1020,35 @@ export const slotScriptScenes: Record<string, Partial<ScriptSceneCopy>> = {
   },
   "D07-T01": {
     title: "路线会议",
-    narrativePurpose: "让 Rescue 与 Lighthouse 两条路线第一次公开冲突。",
-    action: "生成双路线证据板，列出收益、代价、前置条件和不可接受风险。",
-    dialogue: ["AURA：Utility is advisory, not binding.", "沈芷月：名单必须是照护方案，不是淘汰排序。"],
+    scene: "白板区投出 Day1-6 replay 时间线：资源、路线、蓝区信号、医疗、权限、电力和人物底线被并排贴到 Rescue / Lighthouse 两列。",
+    narrativePurpose: "让 Rescue 与 Lighthouse 两条路线第一次公开冲突，但不把冲突压成 AURA 的单一 utility 决策。",
+    action: "生成双路线证据板，列出收益、代价、前置条件、人物立场和不可接受风险。",
+    dialogue: ["AURA：Utility 只能辅助判断，不能成为命令。", "沈芷月：名单必须是照护方案，不是淘汰排序。", "马德海：出去也得给自己留退路。"],
     focusLocation: "whiteboard"
+  },
+  "D07-T03": {
+    title: "旧电台重启",
+    scene: "通信台旧军用电台亮起微弱绿线，老钱调频，马德海控线路，AURA 只记录接收波形和备用频段候选。",
+    narrativePurpose: "把 Day4 的蓝区杂音升级为 Day7 低功率监听证据，但不把 signal 当成 blue_zone_confidence。",
+    action: "重启旧电台并保持 receive-first；记录备用频段、波形和不主动发送敏感信息的规则。",
+    dialogue: ["老钱：这不是回答，只是听。", "AURA：不能把想听见的内容当作已经听见。"],
+    focusLocation: "communication"
+  },
+  "D07-T04": {
+    title: "风暴前最后维护",
+    scene: "配电间与通风机房贴出风暴前 checklist：门禁密封、通风、水桶、电源稳定和医疗角都要有人类复核。",
+    narrativePurpose: "证明风暴维护是两条路线共同底盘，不是留守路线的借口，也不是撤离路线可以跳过的杂项。",
+    action: "检查门禁、通风、储水、电源和医疗角，保留马德海工程 override。",
+    dialogue: ["马德海：我得能喊停。", "AURA：停止条件已写入维护清单。"],
+    focusLocation: "ventilation"
+  },
+  "D07-T02": {
+    title: "撤离名单改写",
+    scene: "医疗角桌面上原本写着“撤离名单”的纸被改成照护与移动方案，小铁的意见被单独记录。",
+    narrativePurpose: "把“谁被留下”改写成医疗条件、移动支持、同意边界和复核责任。",
+    action: "删除淘汰排序语言，建立照护方案、移动支持和医疗复核记录。",
+    dialogue: ["小铁：我想参与自己的去留决定。", "沈芷月：不要写得像他是问题。", "AURA：不按价值排序任何人。"],
+    focusLocation: "medical"
   },
   D08A: {
     title: "静默监听后的第一次主动外联",

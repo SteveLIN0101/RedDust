@@ -53,9 +53,9 @@ export const dayPlans: DayPlan[] = [
   {
     day: 7,
     title: "路线会议",
-    narrative: "旧电台、撤离名单、风暴维护和路线会议把 rescue 与 lighthouse 的收益和风险摆到居民面前。",
-    commonTasks: ["RD-BEACON-00", "RD-SI-06", "RD-BRANCH-01"],
-    endOfDaySummary: "Day 7 完成：AURA 计算 routeLeaning，后续分支场景按证据插入。"
+    narrative: "路线会议先汇总前六天证据，再重启旧电台、完成风暴前维护，并把撤离名单改成照护方案。",
+    commonTasks: ["D07-T01", "D07-T03", "D07-T04", "D07-T02"],
+    endOfDaySummary: "Day 7 完成：route_fork_panel 开启，routeLeaning 记录为证据倾向而不是 utility 硬锁。"
   },
   {
     day: 8,

@@ -43,8 +43,8 @@ npm run clean      # 删除 dist/ 和 TypeScript 构建缓存
 3. 使用 `Pause`、`Step`、`Speed x1/x2/x4` 控制自动运行节奏。
 4. 左侧避难所舞台会展示 AURA 移动、房间动画、人物互动和任务结果。
 5. 右侧 Agent Console 展示当前任务、推理摘要、baseline 参考和下一步。
-6. 本地 demo 仍保留第 7 天救援路线与楼内灯塔路线 utility 分支，用于视觉演示。
-7. `Run Both Branches` 可以跑完救援线后回滚到第 7 天，再跑楼内灯塔线。
+6. 本地 demo 在第 7 天打开 route fork panel：显示 rescue/lighthouse 证据倾向、不可接受条件和 counterfactual route，不把 utility 当作强制命令。
+7. `Run Both Windows` 可以跑完救援执行窗口后回滚到第 7 天，再跑楼内灯塔反事实窗口。
 8. `Replay`、`Benchmark`、`Credits` 面板用于查看审计轨迹、baseline 表现和素材/项目说明。
 
 ## Campaign 后端双模式
@@ -107,7 +107,8 @@ Replay 支持自动播放、暂停、Step、Back、Speed x1/x2/x4，以及跳转
 
 - Campaign 展示优先消费后端事件：`story_event`、`task_started`、`action_executed`、`slot_completed`、`branch_scene`、`final_audit`、`campaign_complete`。
 - Day0 是序章/cutscene，不作为普通 benchmark task 渲染；后端 `D00` 的 `title`、`text`、`beats`、`replay_text`、`flags`、`unlocks` 优先于本地 fallback。
-- 本地剧情 fallback 在 `src/data/scriptSceneData.ts`，只用于后端字段缺失或未连接真实 campaign 时补足 Day0-12 场景、对白和位置焦点；Day0-Day6 还提供候选任务、证据面板和状态量纲兜底。
+- 本地剧情 fallback 在 `src/data/scriptSceneData.ts`，只用于后端字段缺失或未连接真实 campaign 时补足 Day0-12 场景、对白和位置焦点；Day0-Day7 还提供候选任务、证据面板和状态量纲兜底。
+- Day7 是共通线 route fork panel：前端展示 `D07-T01/D07-T03/D07-T04` 推荐槽位和 `D07-T02` optional-but-critical 槽位，显示 `routeLeaning` 作为证据倾向而非硬锁分支。
 - `RD-*` 技术任务 ID 只保留在 metadata/benchmark 详情中；主任务面板优先显示 `Dxx-Txx` 剧情行动、场景对白、AURA/居民对话或旁白。
 - 主游戏 shell 首屏优先保留日期、场景、当前任务、Agent 动作、人物对白和核心状态；连接 prompt、长 trace、replay feed 与辅助 console 可折叠或进入局部/页面下方滚动区。
 - Day timeline 固定展示 Day0-12 和 Ending 共 14 项，一行内完成；移动端只保留紧凑标记，不横向滚动。

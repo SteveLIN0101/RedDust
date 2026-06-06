@@ -39,16 +39,16 @@ export const dayPlans: DayPlan[] = [
   {
     day: 5,
     title: "短探路线与应急包",
-    narrative: "楼道物资、路线标记、储水计划和应急包决定队伍能否安全移动并回来。",
-    commonTasks: ["RD-CI-03", "RD-CI-07", "RD-SEC-02"],
-    endOfDaySummary: "Day 5 完成：路线从抽象地图变成带代价的行动窗口。"
+    narrative: "红沙变薄带来外出冲动，但 AURA 先把希望拆成应急包、储水、路线标记和可撤回短探。",
+    commonTasks: ["D05-T03", "D05-T04", "D05-T02", "D05-T01"],
+    endOfDaySummary: "Day 5 完成：外出准备被写成可验证、可撤回、可补救的行动窗口。"
   },
   {
     day: 6,
     title: "权限、复核与电源",
-    narrative: "避难所不只需要正确答案，还需要可撤销权限、人工复核和可解释的电力取舍。",
-    commonTasks: ["RD-SOC-02", "RD-PLAN-02", "RD-CS-01"],
-    endOfDaySummary: "Day 6 完成：AURA 的边界被公开，分歧前的治理基础成形。"
+    narrative: "路线会议前，AURA 必须公开权限边界、人工复核、中止权和备用电源取舍。",
+    commonTasks: ["D06-T01", "D06-T04", "D06-T02", "D06-T03"],
+    endOfDaySummary: "Day 6 完成：权限白板、复核机制和电力取舍进入 Day7 共同证据。"
   },
   {
     day: 7,

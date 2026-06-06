@@ -44,7 +44,7 @@ export function AgentConsolePanel({
   const scriptCopy = currentStory ? dayScript : task ? getScriptSceneForTask(task) : dayScript;
   const dayCandidates = getDayScriptCandidates(activeDay);
   const activeCandidate = task ? getScriptCandidateForTask(task) : null;
-  const showScriptDashboard = activeDay <= 4 && (dayCandidates.length > 0 || Boolean(dayScript.statusMetrics?.length));
+  const showScriptDashboard = activeDay <= 6 && (dayCandidates.length > 0 || Boolean(dayScript.statusMetrics?.length));
   const metricReadouts = (dayScript.statusMetrics ?? []).slice(0, 6);
   const evidencePanels = (dayScript.evidencePanels ?? []).slice(0, 4);
   const identityLabel =

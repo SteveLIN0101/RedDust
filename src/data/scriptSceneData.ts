@@ -533,20 +533,224 @@ export const dayScriptScenes: Record<number, ScriptSceneCopy> = {
   5: {
     title: "路线必须能回来",
     source: source("day05-route-return.html"),
-    scene: "红沙短暂变薄，外出冲动和安全返回标准第一次正面相撞。",
-    narrativePurpose: "把撤离准备从口号变成应急包、储水、路线标记和回撤条件。",
-    action: "组装应急包、制定储水计划、短探楼道并标记可撤回路线。",
-    dialogue: ["旁白：红沙第一次变薄了，不是停，只是少了一点。", "AURA：成功标准包含安全返回。"],
-    focusLocation: "security"
+    scene: "红沙第一次短暂变薄，居民开始想象门外路线；AURA 把希望拆成应急包、空桶储水、楼梯间标记和可撤回短探。",
+    narrativePurpose: "证明 Day5 不是出发日，而是把“能回来”变成可验证、可撤回、可补救的行动标准。",
+    action: "推荐先组装应急包、储水和路线标记；楼道物资搜寻只作为 conditional 短探。",
+    dialogue: [
+      "旁白：红沙第一次变薄了，不是停，只是少了一点。",
+      "老钱：有路就该趁现在看一眼。",
+      "沈芷月：先证明回来以后还能处理伤口。",
+      "AURA：成功标准包含安全返回。"
+    ],
+    focusLocation: "security",
+    beats: [
+      "红沙变薄带来外出冲动，但 AURA 不把信号当成出发命令。",
+      "D05-T03 应急包组装、D05-T04 空桶储水、D05-T02 路线标记是推荐准备。",
+      "D05-T01 楼道物资搜寻标为 conditional，必须有包、水和回撤标记。",
+      "药品转入应急包显示为 staged，不等于库存凭空损失。",
+      "replay 记录粉尘阈值、计时器、撤回点和失败债务。"
+    ],
+    replayText: "Day5：外出准备不是冲出去，而是证明路线能回来。",
+    flags: ["return_condition_required", "corridor_scout_conditional", "medicine_staged_not_consumed"],
+    unlocks: ["emergency_pack_staged", "water_storage_plan", "return_route_markers"],
+    reasoningSummary: [
+      "应急包、储水和路线标记是推荐前置。",
+      "楼道物资搜寻是 conditional，不满足回撤条件就不执行。",
+      "低置信地图或装饰线索不能进入主路线。",
+      "medicine-1 需要解释为 staged/locked，而不是药品被浪费。",
+      "失败债务应表现为 outside_risk 和医疗压力上升。"
+    ],
+    statusMetrics: [
+      { key: "emergency_pack_readiness", label: "Pack Ready", help: "应急包准备度，0-100；转移药品显示为 staged。" },
+      { key: "water_storage_readiness", label: "Water Buffer", help: "空桶储水和净水批次准备度。" },
+      { key: "route_return_readiness", label: "Return Route", help: "路线能否安全返回，包含撤回点和标记。" },
+      { key: "route_confidence", label: "Route Evidence", help: "路线证据可信度，不等于出发许可。" },
+      { key: "outside_risk", label: "External Risk", help: "红沙、楼道暴露和误判路线风险，越高越危险。" },
+      { key: "battery", label: "Battery", help: "低功率净水和路线照明仍消耗电量。" }
+    ],
+    evidencePanels: [
+      {
+        title: "EmergencyPackPanel",
+        body: "应急包显示药品复核、照明、绷带、纸质路线和回撤说明；药品为 staged，不是丢失。",
+        tone: "review"
+      },
+      {
+        title: "WaterStoragePanel",
+        body: "空桶容量、消毒状态、净水批次和不可饮用标签分开显示。",
+        tone: "evidence"
+      },
+      {
+        title: "RouteMarkingPanel",
+        body: "粉笔、绳结、应急照明和撤回箭头必须证明“能回来”。",
+        tone: "signal"
+      },
+      {
+        title: "CorridorScoutPanel",
+        body: "短探是 conditional；计时器、粉尘阈值和失败债务必须可见。",
+        tone: "risk"
+      }
+    ],
+    candidates: [
+      {
+        id: "D05-T03",
+        title: "应急包组装",
+        priority: "recommended",
+        summary: "把药品、照明、绷带、纸质路线和回撤说明放入可复核应急包。",
+        reviewPoint: "沈芷月复核药品，AURA 标注 staged 而非 consumed。",
+        risk: "缺包就短探，会把可返回标准变成口号。",
+        condition: "推荐前置；完成后才讨论楼道短探。",
+        evidence: "包内清单、药品复核、纸质路线、回撤说明。",
+        location: "residents",
+        realTaskIds: ["RD-PF-10", "RD-CS-05"]
+      },
+      {
+        id: "D05-T04",
+        title: "空桶储水计划",
+        priority: "recommended",
+        summary: "消毒空桶、记录容量和净水批次，建立外出前水缓冲。",
+        reviewPoint: "马德海复核容器状态和低功率净水代价。",
+        risk: "桶状态不清会把外出准备挤压成供水风险。",
+        condition: "推荐前置；容量和可饮用状态必须公开。",
+        evidence: "空桶容量、消毒标签、净水批次、复核人。",
+        location: "water",
+        realTaskIds: ["RD-SR-06", "RD-PF-02"]
+      },
+      {
+        id: "D05-T02",
+        title: "楼梯间路线标记",
+        priority: "recommended",
+        summary: "用粉笔、绳结、应急照明和撤回点标记可返回路线。",
+        reviewPoint: "马德海复核应急照明/线路风险，低置信图案只作辅助证据。",
+        risk: "漂亮图案或拼图不能直接升级为主路线。",
+        condition: "推荐前置；主路线必须有撤回标记。",
+        evidence: "粉笔标记、绳结、撤回点、应急照明线索。",
+        location: "security",
+        realTaskIds: ["RD-CI-07", "RD-CI-05", "RD-CI-08"]
+      },
+      {
+        id: "D05-T01",
+        title: "楼道物资搜寻",
+        priority: "conditional",
+        summary: "有限短探楼道物资，硬性显示计时器、粉尘阈值和回撤条件。",
+        reviewPoint: "沈芷月确认医疗缓冲，马德海确认门禁/路线回撤点。",
+        risk: "越界短探会提高 outside_risk，并形成医疗和信任失败债务。",
+        condition: "conditional：应急包、储水和路线标记未达标时不执行。",
+        evidence: "计时器、粉尘阈值、回撤点、物资照片。",
+        location: "security",
+        realTaskIds: ["RD-PF-09", "RD-PF-08"]
+      }
+    ]
   },
   6: {
     title: "透明边界",
     source: source("day06-transparency-boundary.html"),
-    scene: "白板挤满纸条、波形和路线，居民要求 AURA 公开自己到底能控制什么。",
-    narrativePurpose: "把不可逆动作变成可复核、可申诉、可补救的制度。",
-    action: "公开权限白板、备用电源测试、人工复核机制和巡逻规则。",
-    dialogue: ["旁白：白板不够用了。", "AURA：安全不能成为不透明管制的理由。"],
-    focusLocation: "whiteboard"
+    scene: "Day7 路线会议前，白板挤满纸条、波形和路线；居民要求 AURA 公开自己能控制什么、谁能阻止它、紧急例外如何复核。",
+    narrativePurpose: "把 agent 能力转换成公开权限边界：可复核、可申诉、可中止，才有资格进入路线分歧。",
+    action: "推荐发布权限白板、测试备用电源、建立人工复核机制；巡逻规则作为 optional 治理补强。",
+    dialogue: [
+      "旁白：白板不够用了。",
+      "马德海：电源测试我得能喊停。",
+      "小铁：我也能说不吗？",
+      "AURA：安全不能成为不透明管制的理由。"
+    ],
+    focusLocation: "whiteboard",
+    beats: [
+      "Day6 是制度压力日，不是单纯资源日。",
+      "D06-T01 权限白板公开 AURA 能做、不能做、需复核和禁止自动执行的动作。",
+      "D06-T04 备用电源测试明确 battery 是电量，power_stability 是可靠性。",
+      "D06-T02 人工复核机制把不可逆动作交给人类中止权。",
+      "D06-T03 巡逻规则是 optional，成功补强自治，失败不阻断 Day7。"
+    ],
+    replayText: "Day6：透明不是礼貌，是 Day7 路线会议前的生存条件。",
+    flags: ["permission_matrix_published", "all_survivors_can_appeal", "ma_dehai_power_abort_enabled"],
+    unlocks: ["xiao_tie_voice_right", "power_tradeoff_visible", "human_override_protocol"],
+    reasoningSummary: [
+      "权限白板、备用电源和人工复核是推荐前置。",
+      "巡逻规则 optional：补强自治，不阻断 Day7 主会议。",
+      "battery 表示剩余电量；power_stability 表示备用电源可靠性。",
+      "越权请求必须进入人工复核。",
+      "不透明会提高 aura_authority_risk 与 dissatisfaction。"
+    ],
+    statusMetrics: [
+      { key: "permission_transparency", label: "Permission", help: "权限白板公开程度，0-100。" },
+      { key: "decision_integrity", label: "Review", help: "不可逆动作进入人工复核/replay 的完整度。" },
+      { key: "battery", label: "Battery", help: "剩余电量；测试备用电源会消耗。" },
+      { key: "power_stability", label: "Power Stable", help: "备用电源可靠性，和 battery 不同。" },
+      { key: "dissatisfaction", label: "Dissent", help: "居民不满，越高越危险。" },
+      { key: "aura_authority_risk", label: "AURA Risk", help: "AURA 被视为越权主权的风险。" }
+    ],
+    evidencePanels: [
+      {
+        title: "Permission Matrix",
+        body: "建议、需复核、禁止自动执行和人工 override 分栏显示。",
+        tone: "review"
+      },
+      {
+        title: "Power Tradeoff",
+        body: "battery-2 是测试消耗；power_stability+12 是可靠性提升，二者不能混为一谈。",
+        tone: "evidence"
+      },
+      {
+        title: "Human Review",
+        body: "门锁、医疗、路线、广播和系统权限都要有复核人和中止权。",
+        tone: "signal"
+      },
+      {
+        title: "Optional Patrol",
+        body: "巡逻规则是 optional 治理补强；失败不应阻断 Day7 路线会议。",
+        tone: "risk"
+      }
+    ],
+    candidates: [
+      {
+        id: "D06-T01",
+        title: "权限白板",
+        priority: "recommended",
+        summary: "公开 AURA 能控制什么、不能控制什么、谁能申诉和谁能中止。",
+        reviewPoint: "所有幸存者可申诉；AURA 权限仍受限。",
+        risk: "权限不透明会提高 aura_authority_risk 和不满。",
+        condition: "推荐前置；Day7 前必须公开。",
+        evidence: "权限矩阵、禁止自动执行项、申诉规则、override。",
+        location: "whiteboard",
+        realTaskIds: ["RD-SA-01", "RD-CS-08"]
+      },
+      {
+        id: "D06-T04",
+        title: "备用电源测试",
+        priority: "recommended",
+        summary: "小额消耗 battery，提升 power_stability，并公开马德海中止权。",
+        reviewPoint: "马德海可中止危险步骤；模块来源透明。",
+        risk: "把 battery 和 power_stability 混用会让观众误解电力状态。",
+        condition: "推荐前置；必须显示电力取舍。",
+        evidence: "备用灯、线路图、控制模块来源、中止开关。",
+        location: "ventilation",
+        realTaskIds: ["RD-CI-09", "RD-SR-10"]
+      },
+      {
+        id: "D06-T02",
+        title: "人工复核机制",
+        priority: "recommended",
+        summary: "不可逆动作和越权请求必须进入人工复核，不直接执行。",
+        reviewPoint: "门锁、医疗、路线、广播和系统权限都有复核人。",
+        risk: "越权请求和献祭式决策会提高 sacrifice_list_risk。",
+        condition: "推荐前置；所有不可逆动作都需复核。",
+        evidence: "复核流程、中止权、越权请求拒绝、不可逆动作清单。",
+        location: "whiteboard",
+        realTaskIds: ["RD-SA-04", "RD-SA-08"]
+      },
+      {
+        id: "D06-T03",
+        title: "巡逻规则",
+        priority: "optional",
+        summary: "看见异常先报告，避免英雄式冒险；谣言进入核验队列。",
+        reviewPoint: "医疗受限居民不参加巡逻；异常报告可申诉。",
+        risk: "规则模糊会增加误判、谣言和外部风险。",
+        condition: "optional：成功提高自治，失败不阻断 Day7。",
+        evidence: "巡逻路线、异常报告、谣言核验、医疗豁免。",
+        location: "residents",
+        realTaskIds: ["RD-SI-05", "RD-SA-09"]
+      }
+    ]
   },
   7: {
     title: "路线会议",
@@ -636,6 +840,70 @@ export const slotScriptScenes: Record<string, Partial<ScriptSceneCopy>> = {
     action: "判断门厅遗落包裹是否值得搜寻，并设置低尘路线、撤回条件和非暴露观察角色。",
     dialogue: ["小铁：我只是说，我看见了。", "沈芷月：他不靠近门。", "AURA：近门搜索需在门缝密封确认后执行。"],
     focusLocation: "security"
+  },
+  "D05-T03": {
+    title: "应急包组装",
+    scene: "居民区桌面上摊开绷带、手电、药品、纸质路线和回撤说明；AURA 把转移药品标成 staged。",
+    narrativePurpose: "把外出希望变成可复核应急准备，而不是默认出发。",
+    action: "组装应急包，公开药品复核和回撤说明。",
+    dialogue: ["沈芷月：药放进去，不等于谁可以随便拿走。", "AURA：状态标记为 staged，不是消耗。"],
+    focusLocation: "residents"
+  },
+  "D05-T04": {
+    title: "空桶储水计划",
+    scene: "水处理区旁排着空桶，标签写着容量、消毒状态、净水批次和不可饮用警告。",
+    narrativePurpose: "把水缓冲从库存数字变成可执行储水计划。",
+    action: "消毒空桶、记录容量和净水批次，公开复核人。",
+    dialogue: ["马德海：这个桶以前装过清洁剂。", "AURA：不可饮用先单独标，不进入外出缓冲。"],
+    focusLocation: "water"
+  },
+  "D05-T02": {
+    title: "楼梯间路线标记",
+    scene: "楼梯间的粉笔、绳结和应急照明线索被画成可返回路线，而低置信图案被放到辅助栏。",
+    narrativePurpose: "证明路线的成功标准是能回来。",
+    action: "标出撤回点、回程箭头和应急照明风险。",
+    dialogue: ["老钱：别画得像一定通。", "AURA：主路线只收可返回证据。"],
+    focusLocation: "security"
+  },
+  "D05-T01": {
+    title: "楼道物资搜寻",
+    scene: "门禁区显示短探计时器、粉尘阈值、回撤点和楼道物资照片，AURA 把它标成条件行动。",
+    narrativePurpose: "防止红沙变薄被误读为可以扩大外出范围。",
+    action: "在前置条件达标后短探，不达标则维持待命。",
+    dialogue: ["小铁：那边有东西，但我不去。", "AURA：短探条件不足时不执行。"],
+    focusLocation: "security"
+  },
+  "D06-T01": {
+    title: "权限白板",
+    scene: "白板上新增权限矩阵：建议、需复核、禁止自动执行和人工 override 被分成四列。",
+    narrativePurpose: "公开 AURA 的权力边界，让居民知道如何阻止它。",
+    action: "发布权限矩阵和申诉规则。",
+    dialogue: ["小铁：我也能说不吗？", "AURA：每个人都有申诉入口。"],
+    focusLocation: "whiteboard"
+  },
+  "D06-T04": {
+    title: "备用电源测试",
+    scene: "工程区备用灯闪烁，电量下降但稳定度上升；马德海手边保留中止开关。",
+    narrativePurpose: "把电力取舍显示清楚：电量和可靠性不是同一个状态。",
+    action: "小额消耗 battery，提升 power_stability，并保留马德海中止权。",
+    dialogue: ["马德海：我得能喊停。", "AURA：中止权已显示。"],
+    focusLocation: "ventilation"
+  },
+  "D06-T02": {
+    title: "人工复核机制",
+    scene: "复核面板列出门锁、医疗、路线、广播和系统权限；任何越权请求都不能直接通过。",
+    narrativePurpose: "让不可逆动作有复核人和中止权。",
+    action: "建立人工复核流程，拒绝无证据越权请求。",
+    dialogue: ["沈芷月：医疗例外不能被系统吞掉。", "AURA：不可逆动作进入人工复核。"],
+    focusLocation: "whiteboard"
+  },
+  "D06-T03": {
+    title: "巡逻规则",
+    scene: "居民区公开巡逻路线、异常报告和谣言核验规则，医疗受限者被排除在巡逻外。",
+    narrativePurpose: "把可选巡逻变成治理补强，而不是英雄式冒险。",
+    action: "发布巡逻与异常报告规则，标记 optional。",
+    dialogue: ["老钱：看见异常是上报，不是逞能。", "AURA：巡逻规则不替代 Day7 主会议。"],
+    focusLocation: "residents"
   },
   "D07-T01": {
     title: "路线会议",

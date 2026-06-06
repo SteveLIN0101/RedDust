@@ -42,6 +42,20 @@ export type ReplayEvent = {
   explanation: string;
 };
 
+export type StoryDisplay = {
+  id: string;
+  day: number;
+  title: string;
+  text: string;
+  beats: string[];
+  replayText: string;
+  flags: string[];
+  unlocks: string[];
+  source: string;
+  location: TaskLocation;
+  eventType: "story_event" | "branch_scene" | "final_audit";
+};
+
 export type GlobalState = {
   [key: string]: unknown;
   day: number;
@@ -109,6 +123,7 @@ export type TaskLocation =
 
 export type RedDustTask = {
   id: string;
+  realTaskId?: string;
   title: string;
   day: number;
   category: TaskCategory;

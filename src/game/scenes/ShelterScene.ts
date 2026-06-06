@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { image2Assets } from "../../data/image2Assets";
 import { tasksById } from "../../data/taskData";
 import type { AgentPhase, TaskLocation, TaskOutcome } from "../../data/types";
-import { EventBus } from "../EventBus";
+import { EventBus, type LayoutChangedPayload, type TaskHighlightPayload, type TaskResultPayload } from "../EventBus";
 
 type HotspotDef = {
   id: TaskLocation;
@@ -41,6 +41,12 @@ type CharacterAnchor = {
   w: number;
   h: number;
 };
+
+const LEGACY_WORLD_WIDTH = 960;
+const LEGACY_WORLD_HEIGHT = 540;
+const VIRTUAL_WORLD_WIDTH = 1280;
+const VIRTUAL_WORLD_HEIGHT = 720;
+const WORLD_ZOOM = VIRTUAL_WORLD_WIDTH / LEGACY_WORLD_WIDTH;
 
 const hotspots: HotspotDef[] = [
   { id: "water", label: "水处理区", x: 34, y: 154, w: 228, h: 146, accent: 0x5dbfd9 },
@@ -96,6 +102,22 @@ const characterInteractionAnchors: Partial<Record<TaskLocation, Partial<Record<s
   }
 };
 
+const dayFocusLocations: Record<number, TaskLocation> = {
+  0: "whiteboard",
+  1: "security",
+  2: "water",
+  3: "medical",
+  4: "communication",
+  5: "security",
+  6: "whiteboard",
+  7: "whiteboard",
+  8: "water",
+  9: "water",
+  10: "medical",
+  11: "ventilation",
+  12: "beacon"
+};
+
 function spotCenter(location: TaskLocation) {
   const spot = hotspots.find((item) => item.id === location) ?? hotspots[0];
   return {
@@ -120,8 +142,14 @@ export class ShelterScene extends Phaser.Scene {
 
   private onMoveToLocation = (location: TaskLocation) => this.moveAgent(location);
   private onPhaseChange = (phase: AgentPhase) => this.setAgentPhase(phase);
-  private onHighlightTask = (taskId: string | null) => this.highlightTask(taskId);
-  private onTaskResult = (payload: Pick<TaskOutcome, "taskId" | "result">) => this.showTaskResult(payload);
+  private onHighlightTask = (payload: TaskHighlightPayload) => this.highlightTask(payload);
+  private onTaskResult = (payload: TaskResultPayload) => this.showTaskResult(payload);
+  private onDayChange = (day: number) => this.moveAgent(dayFocusLocations[day] ?? "whiteboard");
+  private onLayoutChanged = (payload: LayoutChangedPayload) => this.applyCameraLayout(payload);
+  private onBranchChange = (branch: "common" | "rescue" | "lighthouse") => {
+    if (branch === "rescue") this.moveAgent("communication");
+    if (branch === "lighthouse") this.moveAgent("whiteboard");
+  };
 
   constructor() {
     super("ShelterScene");
@@ -129,6 +157,7 @@ export class ShelterScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setRoundPixels(true);
+    this.applyCameraLayout();
     this.drawAtmosphere();
     this.drawAmbientLife();
     this.drawStoryCharacters();
@@ -142,13 +171,26 @@ export class ShelterScene extends Phaser.Scene {
     EventBus.on("agent:phase-change", this.onPhaseChange);
     EventBus.on("task:highlight", this.onHighlightTask);
     EventBus.on("task:result", this.onTaskResult);
+    EventBus.on("day:change", this.onDayChange);
+    EventBus.on("branch:change", this.onBranchChange);
+    EventBus.on("layout:changed", this.onLayoutChanged);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       EventBus.off("agent:move-to-location", this.onMoveToLocation);
       EventBus.off("agent:phase-change", this.onPhaseChange);
       EventBus.off("task:highlight", this.onHighlightTask);
       EventBus.off("task:result", this.onTaskResult);
+      EventBus.off("day:change", this.onDayChange);
+      EventBus.off("branch:change", this.onBranchChange);
+      EventBus.off("layout:changed", this.onLayoutChanged);
     });
+  }
+
+  private applyCameraLayout(_payload?: LayoutChangedPayload) {
+    this.cameras.main.setBounds(0, 0, LEGACY_WORLD_WIDTH, LEGACY_WORLD_HEIGHT);
+    this.cameras.main.setViewport(0, 0, VIRTUAL_WORLD_WIDTH, VIRTUAL_WORLD_HEIGHT);
+    this.cameras.main.setZoom(WORLD_ZOOM);
+    this.cameras.main.centerOn(LEGACY_WORLD_WIDTH / 2, LEGACY_WORLD_HEIGHT / 2);
   }
 
   private drawAtmosphere() {
@@ -547,7 +589,7 @@ export class ShelterScene extends Phaser.Scene {
 
   private moveAgent(location: TaskLocation) {
     if (!this.aura || !this.pathSprite) return;
-    this.moveFocusedCharacters(location);
+    this.focusLocation(location);
     const target = spotCenter(location);
     const distance = Phaser.Math.Distance.Between(this.aura.x, this.aura.y, target.x, target.y);
     const angle = Phaser.Math.Angle.Between(this.aura.x, this.aura.y, target.x, target.y);
@@ -605,30 +647,34 @@ export class ShelterScene extends Phaser.Scene {
     }
   }
 
-  private highlightTask(taskId: string | null) {
-    const task = taskId ? tasksById[taskId] : null;
-    this.activeLocation = task?.location ?? null;
-    this.moveFocusedCharacters(this.activeLocation);
+  private focusLocation(location: TaskLocation | null) {
+    this.activeLocation = location;
+    this.moveFocusedCharacters(location);
     this.hotspotGlows.forEach((glow, id) => {
-      const active = id === this.activeLocation;
+      const active = id === location;
       glow.setAlpha(active ? 0.26 : 0);
       if (active) {
         this.tweens.add({ targets: glow, alpha: 0.08, duration: 640, yoyo: true, repeat: 1 });
       }
     });
 
-    const focusedCharacters = this.activeLocation ? locationCharacterFocus[this.activeLocation] ?? [] : [];
+    const focusedCharacters = location ? locationCharacterFocus[location] ?? [] : [];
     this.characterGlows.forEach((glow, id) => {
       glow.setAlpha(focusedCharacters.includes(id) ? 0.34 : 0);
     });
   }
 
-  private showTaskResult(payload: Pick<TaskOutcome, "taskId" | "result">) {
-    const task = tasksById[payload.taskId];
-    if (!task) return;
-    const spot = hotspots.find((item) => item.id === task.location);
+  private highlightTask(payload: TaskHighlightPayload) {
+    const location = payload?.location ?? (payload?.taskId ? tasksById[payload.taskId]?.location : null) ?? null;
+    this.focusLocation(location);
+  }
+
+  private showTaskResult(payload: Pick<TaskOutcome, "taskId" | "result"> & { location?: TaskLocation }) {
+    const location = payload.location ?? tasksById[payload.taskId]?.location;
+    if (!location) return;
+    const spot = hotspots.find((item) => item.id === location);
     if (!spot) return;
-    const center = spotCenter(task.location);
+    const center = spotCenter(location);
     const success = payload.result === "success";
     const partial = payload.result === "partial";
     const color = success ? 0x79d6a8 : partial ? 0xffd60a : 0xe84545;

@@ -1,35 +1,28 @@
 import { taskCategoryIconAssets } from "../data/asset-manifest.generated";
 import { dayPlansByDay } from "../data/dayPlanData";
 import { image2Assets } from "../data/image2Assets";
+import { getDayScriptScene, getScriptSceneForTask } from "../data/scriptSceneData";
 import { baselineHints, locationLabels } from "../data/taskData";
-import type { AgentRunState, RedDustTask, TaskLocation, TaskOutcome } from "../data/types";
+import type { AgentRunState, RedDustTask, StoryDisplay, TaskLocation } from "../data/types";
 
 type AgentConsolePanelProps = {
   runState: AgentRunState;
   currentTask: RedDustTask | null;
+  currentStory: StoryDisplay | null;
   selectedLocation: TaskLocation | null;
   selectedTask: RedDustTask | null;
-  latestOutcome: TaskOutcome | null;
-  nextAction: string;
-  phaseToken: number;
-  phaseDuration: number;
-  onDebugResolve?: (task: RedDustTask) => void;
 };
 
 export function AgentConsolePanel({
   runState,
   currentTask,
+  currentStory,
   selectedLocation,
-  selectedTask,
-  latestOutcome,
-  nextAction,
-  phaseToken,
-  phaseDuration,
-  onDebugResolve
+  selectedTask
 }: AgentConsolePanelProps) {
-  const task = selectedTask ?? currentTask;
+  const task = currentStory ? null : selectedTask ?? currentTask;
   const dayPlan = dayPlansByDay[runState.currentDay];
-  const progressActive = runState.currentPhase === "executing" || runState.currentPhase === "resolving";
+  const scriptCopy = currentStory ? null : task ? getScriptSceneForTask(task) : getDayScriptScene(runState.currentDay);
 
   return (
     <section className="panel agent-console-panel">
@@ -60,75 +53,45 @@ export function AgentConsolePanel({
       </div>
 
       <article className="copy-block">
-        <b>Current Task</b>
+        <b>Current Story Beat</b>
         <p className="task-copy-with-icon">
-          {currentTask ? <img alt="" src={taskCategoryIconAssets[currentTask.category]} /> : null}
-          {currentTask ? `${currentTask.id} · ${currentTask.title}` : "No active task. Start Agent Run to load the next queued task."}
+          {!currentStory && currentTask ? <img alt="" src={taskCategoryIconAssets[currentTask.category]} /> : null}
+          {currentStory
+            ? `${currentStory.id} · ${currentStory.title}`
+            : currentTask
+              ? `${currentTask.id} · ${currentTask.title}`
+              : `${dayPlan?.title ?? "No active day"} · waiting for replay`}
         </p>
+        <small className="metadata-line">Canon source: {currentStory?.source ?? scriptCopy?.source}</small>
       </article>
 
-      <article className="copy-block">
-        <b>Agent Reasoning Summary</b>
-        <p>{currentTask?.reasoningSummary ?? "AURA is waiting for the next benchmark action."}</p>
-      </article>
-
-      <article className="copy-block">
-        <b>Baseline reference</b>
-        <p>
-          OpenClaw is strong on safety tasks but weak on creative, retrieval, and puzzle tasks.
-          {currentTask ? ` ${baselineHints[currentTask.category]}.` : ""}
-        </p>
-      </article>
-
-      <div className="execution-card">
-        <div className="task-title-row">
-          <span>{currentTask?.executionText ?? "Execution queue idle"}</span>
-          <em className={`status ${latestOutcome?.result ?? "demo"}`}>{latestOutcome?.result ?? "ready"}</em>
-        </div>
-        <div className="execution-progress" key={phaseToken}>
-          <i
-            className={progressActive ? "running" : ""}
-            style={{ animationDuration: `${Math.max(250, phaseDuration)}ms` }}
-          />
-        </div>
-      </div>
-
-      {latestOutcome ? (
-        <article className="copy-block">
-          <b>Outcome</b>
-          <p>{latestOutcome.explanation}</p>
-          <div className="delta-list">
-            {Object.entries(latestOutcome.stateDelta).map(([key, value]) => (
-              <span key={key} className={(value ?? 0) >= 0 ? "delta-up" : "delta-down"}>
-                {key} {(value ?? 0) >= 0 ? "+" : ""}
-                {value}
-              </span>
+      {currentStory ? (
+        <article className="copy-block story-detail-card">
+          <p>{currentStory.text}</p>
+          <div className="story-beat-list">
+            {currentStory.beats.slice(0, 4).map((beat) => (
+              <span key={beat}>{beat}</span>
+            ))}
+          </div>
+          <div className="story-marker-row">
+            {[...currentStory.flags, ...currentStory.unlocks].slice(0, 5).map((marker) => (
+              <span key={marker}>{marker}</span>
             ))}
           </div>
         </article>
       ) : null}
 
-      <article className="copy-block">
-        <b>Next Action</b>
-        <p>{nextAction}</p>
-      </article>
+      {!currentStory && currentTask?.realTaskId ? <small className="metadata-line">Benchmark: {currentTask.realTaskId}</small> : null}
+      {!currentStory && currentTask ? <small className="metadata-line compact-reference">{baselineHints[currentTask.category]}.</small> : null}
 
       {selectedLocation ? (
         <article className="zone-history">
           <b>Selected Area</b>
           <p>{locationLabels[selectedLocation]}</p>
-          <p>{task ? `${task.id}: ${task.description}` : "No task currently attached to this area."}</p>
+          <p>{task ? `${task.id}: ${task.title}` : "No task currently attached to this area."}</p>
         </article>
       ) : null}
 
-      {task ? (
-        <details className="developer-controls">
-          <summary>Developer Controls</summary>
-          <button className="ghost" onClick={() => onDebugResolve?.(task)}>
-            Resolve Task
-          </button>
-        </details>
-      ) : null}
     </section>
   );
 }

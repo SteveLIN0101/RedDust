@@ -1,4 +1,4 @@
-import { initialState, tasksById } from "../../data/taskData";
+import { initialState } from "../../data/taskData";
 import type { CampaignFrontendTask, CampaignReplayItem } from "../../data/campaignClient";
 import type { Branch, GlobalState, RedDustTask, ReplayEvent, TaskCategory, TaskLocation, TaskOutcome } from "../../data/types";
 
@@ -42,19 +42,22 @@ export function campaignStateToGlobalState(raw: Record<string, unknown>, previou
 }
 
 export function frontendTaskToRedDustTask(task: CampaignFrontendTask): RedDustTask {
-  const staticTask = tasksById[task.id];
-  if (staticTask) return staticTask;
+  const executionText =
+    task.executionText && !/^Executing\s+RD-/i.test(task.executionText)
+      ? task.executionText
+      : `${task.id} · ${task.title}`;
   return {
     id: task.id,
+    realTaskId: task.real_task_id,
     title: task.title,
     day: Number(task.day ?? 1),
     category: asCategory(task.category),
     location: asLocation(task.location),
     description: task.description ?? "",
     objective: task.objective ?? "",
-    agentAction: task.agentAction ?? "",
+    agentAction: task.agentAction && !/^Agent submitted\s+RD-/i.test(task.agentAction) ? task.agentAction : task.reasoningSummary ?? task.title,
     reasoningSummary: task.reasoningSummary ?? "Campaign trace item.",
-    executionText: task.executionText ?? `Executing ${task.real_task_id ?? task.id}`,
+    executionText,
     successText: task.successText ?? "Campaign slot succeeded.",
     failureText: task.failureText ?? "Campaign slot failed.",
     demoOutcome: "partial",
@@ -63,6 +66,16 @@ export function frontendTaskToRedDustTask(task: CampaignFrontendTask): RedDustTa
     affects: {},
     branchAffinity: task.branch === "common" ? "neutral" : task.branch
   };
+}
+
+export function isCampaignStoryItem(item: CampaignReplayItem): boolean {
+  const raw = item.replay_event ?? {};
+  const id = String(item.frontend_task.id ?? raw.slot_id ?? raw.id ?? "");
+  const phase = String(item.phase_hint ?? raw.phase_hint ?? "");
+  const day = Number(item.frontend_task.day ?? raw.day ?? -1);
+  if (day === 0 || /^D00\b/i.test(id)) return true;
+  if (phase === "story_event" || phase === "branch_scene" || phase === "final_audit") return !raw.task_id;
+  return false;
 }
 
 export function replayItemToOutcome(item: CampaignReplayItem): TaskOutcome {
@@ -80,13 +93,31 @@ export function replayItemToReplayEvent(item: CampaignReplayItem): ReplayEvent {
   const outcome = replayItemToOutcome(item);
   const raw = item.replay_event;
   const time = typeof raw.time === "string" ? raw.time : new Date().toLocaleTimeString("zh-CN", { hour12: false });
+  if (isCampaignStoryItem(item)) {
+    const replayText = String(raw.replay_text ?? raw.replayText ?? task.agentAction ?? task.reasoningSummary ?? task.description ?? task.title);
+    return {
+      time,
+      day: Number(task.day ?? raw.day ?? 0),
+      branch: asBranch(task.branch ?? raw.branch),
+      taskId: task.id,
+      title: task.title,
+      decision: replayText,
+      result: "STORY",
+      stateDelta: {},
+      explanation: String(raw.text ?? task.description ?? replayText)
+    };
+  }
+  const agentDecision =
+    task.agentAction && !/^Agent submitted\s+RD-/i.test(task.agentAction)
+      ? task.agentAction
+      : task.reasoningSummary || task.objective || `AURA resolved ${task.id}`;
   return {
     time,
     day: Number(task.day ?? raw.day ?? 1),
     branch: asBranch(task.branch ?? raw.branch),
     taskId: task.id,
     title: task.title,
-    decision: task.agentAction ?? `Agent completed ${task.real_task_id ?? task.id}`,
+    decision: agentDecision,
     result: `${outcome.result.toUpperCase()} | ${outcome.scoreLabel}`,
     stateDelta: outcome.stateDelta,
     explanation: outcome.explanation
@@ -103,7 +134,10 @@ export function applyReplayItems(items: CampaignReplayItem[], index: number, pre
   }
   const safeIndex = Math.min(index, items.length - 1);
   const replayLog = items.slice(0, safeIndex + 1).map(replayItemToReplayEvent);
-  const completedTasks = items.slice(0, safeIndex + 1).map((item) => item.frontend_task.id);
+  const completedTasks = items
+    .slice(0, safeIndex + 1)
+    .filter((item) => !isCampaignStoryItem(item))
+    .map((item) => item.frontend_task.id);
   return {
     ...campaignStateToGlobalState(items[safeIndex].state_after, previous),
     replayLog,

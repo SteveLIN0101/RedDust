@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AgentConsolePanel } from "./components/AgentConsolePanel";
 import { AgentControlBar } from "./components/AgentControlBar";
+import { AgentTracePanel, campaignEventToAgentTraceEntry, type AgentTraceEntry } from "./components/AgentTracePanel";
 import { BenchmarkPanel } from "./components/BenchmarkPanel";
 import { BranchDecisionPanel } from "./components/BranchDecisionPanel";
 import { CompareBranchesPanel } from "./components/CompareBranchesPanel";
@@ -13,8 +14,9 @@ import { ReplayPanel } from "./components/ReplayPanel";
 import { StateDeltaToast } from "./components/StateDeltaToast";
 import { CampaignClient, defaultCampaignApiBase, type CampaignEvent, type CampaignReplayItem, type CampaignState, type CampaignTrace } from "./data/campaignClient";
 import { dayPlansByDay } from "./data/dayPlanData";
+import { getDayScriptScene } from "./data/scriptSceneData";
 import { clampMetric, initialState, tasks, tasksById } from "./data/taskData";
-import type { Branch, GlobalState, RedDustTask, TaskLocation, TaskOutcome, TaskRunStatus } from "./data/types";
+import type { Branch, GlobalState, RedDustTask, ReplayEvent, StoryDisplay, TaskLocation, TaskOutcome, TaskRunStatus } from "./data/types";
 import { EventBus } from "./game/EventBus";
 import { PhaserGame } from "./game/PhaserGame";
 import {
@@ -33,6 +35,7 @@ import {
   buildAgentPrompt,
   campaignStateToGlobalState,
   frontendTaskToRedDustTask,
+  isCampaignStoryItem,
   replayItemToOutcome,
   replayItemToReplayEvent
 } from "./game/systems/campaignAdapter";
@@ -112,6 +115,99 @@ function endingForBranch(branch: Exclude<Branch, "common">): EndingState {
   };
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function textValue(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return undefined;
+}
+
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function storyDayFromId(id: string, fallback = 0) {
+  const match = /^D(\d{2})/i.exec(id);
+  return match ? Number(match[1]) : fallback;
+}
+
+const storyMarkerLabels: Record<string, string> = {
+  aura_authority_limited: "AURA 权限受限",
+  medical_review_required: "医疗需复核",
+  engineering_review_required: "工程需复核",
+  external_signal_verification_required: "外部信号需核验"
+};
+
+function labelStoryMarker(value: string) {
+  return storyMarkerLabels[value] ?? value.replaceAll("_", " ");
+}
+
+function normalizeStoryLocation(value: unknown, fallback: TaskLocation): TaskLocation {
+  const aliases: Record<string, TaskLocation> = {
+    shelter_core: "whiteboard",
+    console: "whiteboard",
+    entrance: "security",
+    dormitory: "residents",
+    resident_area: "residents",
+    radio: "communication"
+  };
+  const allowed: TaskLocation[] = ["water", "medical", "security", "ventilation", "communication", "whiteboard", "residents", "beacon"];
+  if (typeof value !== "string") return fallback;
+  return aliases[value] ?? (allowed.includes(value as TaskLocation) ? (value as TaskLocation) : fallback);
+}
+
+function storyDisplayFromRaw(
+  eventType: StoryDisplay["eventType"],
+  raw: Record<string, unknown>,
+  replay: Record<string, unknown>,
+  payload: Record<string, unknown>,
+  nextCampaignState?: CampaignTrace
+): StoryDisplay {
+  const id = textValue(raw.id, replay.slot_id, replay.id, eventType === "story_event" ? "D00" : eventType) ?? "D00";
+  const idDay = storyDayFromId(id, Number.NaN);
+  const payloadDay = Number(raw.day ?? replay.day ?? nextCampaignState?.global_state?.day ?? 0);
+  const day = Number.isFinite(idDay) ? idDay : Number.isFinite(payloadDay) ? payloadDay : 0;
+  const script = getDayScriptScene(day);
+  const beats = stringList(raw.beats).length
+    ? stringList(raw.beats)
+    : stringList(payload.beats).length
+      ? stringList(payload.beats)
+      : script.beats ?? [script.scene, script.action];
+  const flags = stringList(raw.flags).length
+    ? stringList(raw.flags)
+    : stringList(payload.flags).length
+      ? stringList(payload.flags)
+      : stringList(nextCampaignState?.story_flags).length
+        ? stringList(nextCampaignState?.story_flags)
+        : script.flags ?? [];
+  const unlocks = stringList(raw.unlocks).length
+    ? stringList(raw.unlocks)
+    : stringList(payload.unlocks).length
+      ? stringList(payload.unlocks)
+      : stringList(nextCampaignState?.story_unlocks).length
+        ? stringList(nextCampaignState?.story_unlocks)
+        : script.unlocks ?? [];
+
+  return {
+    id,
+    day,
+    title: textValue(raw.title, replay.slot_title, replay.title, script.title) ?? script.title,
+    text: textValue(raw.text, replay.text, replay.task_title, script.scene) ?? script.scene,
+    beats,
+    replayText: textValue(raw.replay_text, raw.replayText, replay.replay_text, replay.replayText, script.replayText, script.action) ?? script.action,
+    flags: flags.map(labelStoryMarker),
+    unlocks: unlocks.map(labelStoryMarker),
+    source: textValue(raw.source, replay.source, script.source) ?? script.source,
+    location: normalizeStoryLocation(raw.location ?? replay.location ?? script.focusLocation, script.focusLocation),
+    eventType
+  };
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>("intro");
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -126,15 +222,22 @@ export default function App() {
   const [ending, setEnding] = useState<EndingState | null>(null);
   const [branchDecision, setBranchDecision] = useState<BranchDecision | null>(null);
   const [branchSummaries, setBranchSummaries] = useState<Partial<Record<Exclude<Branch, "common">, BranchSummary>>>({});
-  const [phaseToken, setPhaseToken] = useState(0);
+  const [, setPhaseToken] = useState(0);
   const [campaignConnection, setCampaignConnection] = useState<CampaignConnection | null>(null);
   const [campaignReplay, setCampaignReplay] = useState<CampaignReplayState>({ trace: null, items: [], index: -1 });
   const [remoteCurrentTask, setRemoteCurrentTask] = useState<RedDustTask | null>(null);
+  const [currentStory, setCurrentStory] = useState<StoryDisplay | null>(null);
+  const [agentTrace, setAgentTrace] = useState<AgentTraceEntry[]>([]);
   const campaignClientRef = useRef(new CampaignClient(defaultCampaignApiBase()));
   const daySevenSnapshot = useRef<Snapshot | null>(null);
 
-  const currentTask = runState.currentTaskId ? tasksById[runState.currentTaskId] ?? remoteCurrentTask : null;
+  const currentTask = runState.currentTaskId
+    ? runSource === "demo"
+      ? tasksById[runState.currentTaskId] ?? remoteCurrentTask
+      : remoteCurrentTask
+    : null;
   const selectedTask = useMemo(() => {
+    if (runSource !== "demo") return null;
     if (!selectedLocation) return null;
     return (
       tasks.find((task) => {
@@ -143,23 +246,13 @@ export default function App() {
         return task.branchAffinity === runState.activeBranch;
       }) ?? null
     );
-  }, [runState.activeBranch, selectedLocation]);
+  }, [runSource, runState.activeBranch, selectedLocation]);
 
   const completedCount = useMemo(
     () => Object.values(runState.taskStatuses).filter((status) => terminalStatuses.includes(status)).length,
     [runState.taskStatuses]
   );
   const phaseDuration = Math.max(250, Math.round((phaseDurations[runState.currentPhase] ?? 800) / runState.speed));
-
-  const nextAction = useMemo(() => {
-    if (runState.currentPhase === "branch_decision") return "AURA is calculating strategy utility scores.";
-    if (runState.currentPhase === "day_summary") return dayPlansByDay[runState.currentDay]?.endOfDaySummary ?? "Preparing next day.";
-    if (runState.currentPhase === "ending") return "Run complete. Open Replay or Compare Branches.";
-    if (runState.currentPhase === "state_updated") return "State Updated: metrics and task status are committed.";
-    if (runState.currentPhase === "replay_logged") return "Replay Logged: the task trace is now available for audit.";
-    if (currentTask) return `Next: ${currentTask.executionText}`;
-    return runState.isRunning ? "Queueing next benchmark task." : "Waiting for Start Agent Run.";
-  }, [currentTask, runState.currentDay, runState.currentPhase, runState.isRunning]);
 
   useEffect(() => {
     const onHotspot = (location: TaskLocation) => {
@@ -194,10 +287,19 @@ export default function App() {
 
   useEffect(() => {
     EventBus.emit("day:change", runState.currentDay);
+  }, [runState.currentDay]);
+
+  useEffect(() => {
     EventBus.emit("branch:change", runState.activeBranch);
+  }, [runState.activeBranch]);
+
+  useEffect(() => {
     EventBus.emit("agent:phase-change", runState.currentPhase);
-    EventBus.emit("task:highlight", currentTask?.id ?? null);
-  }, [currentTask?.id, runState.activeBranch, runState.currentDay, runState.currentPhase]);
+  }, [runState.currentPhase]);
+
+  useEffect(() => {
+    EventBus.emit("task:highlight", currentTask ? { taskId: currentTask.id, location: currentTask.location } : null);
+  }, [currentTask?.id, currentTask?.location]);
 
   useEffect(() => {
     if (!latestOutcome) return;
@@ -261,6 +363,7 @@ export default function App() {
       run: campaign.current_run ?? {}
     });
     setRemoteCurrentTask(task);
+    setCurrentStory(null);
     setRunState((prev) => ({
       ...prev,
       currentDay: task.day,
@@ -286,55 +389,96 @@ export default function App() {
       day: Number(slot.day ?? run.day ?? 1),
       branch: branch as Branch,
       location: String(slot.location ?? "whiteboard") as TaskLocation,
-      description: String(run.title ?? ""),
-      objective: `完成真实任务 ${String(run.task_id ?? "")}`,
-      agentAction: `Agent is playing ${String(run.task_id ?? "")}`,
-      reasoningSummary: "Waiting for backend agent action.",
-      executionText: `Running ${String(run.task_id ?? "")}`
+      description: String(slot.script_role ?? run.title ?? ""),
+      objective: `${String(slot.slot_id ?? run.slot_id ?? "")} · ${String(slot.story_title ?? run.title ?? "")}`,
+      agentAction: String(slot.script_role ?? "AURA is executing the readable-script campaign slot."),
+      reasoningSummary: String(slot.script_role ?? "Waiting for backend agent action."),
+      executionText: String(slot.story_title ?? run.title ?? run.task_id ?? "Campaign task")
     });
   }
 
-  function replayItemFromPayload(event: CampaignEvent, nextCampaignState?: CampaignState): CampaignReplayItem | null {
+  function storyDisplayFromEvent(event: CampaignEvent, nextCampaignState?: CampaignTrace): StoryDisplay {
     const payload = event.payload;
-    const direct = payload.frontend_trace_item;
-    if (direct && typeof direct === "object") return direct as CampaignReplayItem;
-    const replayEvent = (payload.replay_event ?? {}) as Record<string, unknown>;
-    const frontendTask = (replayEvent.frontend_task ?? {
-      id: replayEvent.slot_id ?? event.type,
-      title: replayEvent.slot_title ?? event.type,
-      day: replayEvent.day ?? nextCampaignState?.global_state?.day ?? 0,
-      branch: replayEvent.branch ?? nextCampaignState?.active_branch ?? "common",
-      location: "whiteboard",
-      category: "planning",
-      description: replayEvent.task_title ?? "",
-      objective: replayEvent.task_title ?? "",
-      agentAction: replayEvent.task_title ?? "",
-      reasoningSummary: event.type === "final_audit" ? "Final Audit event." : "Readable-script story event.",
-      executionText: replayEvent.slot_title ?? event.type
-    }) as CampaignReplayItem["frontend_task"];
-    if (!frontendTask.id) return null;
+    const nestedStory = asRecord(payload.story_event ?? payload.branch_scene ?? payload.final_audit);
+    const replay = asRecord(payload.replay_event);
+    return storyDisplayFromRaw(
+      event.type === "branch_scene" || event.type === "final_audit" ? event.type : "story_event",
+      { ...payload, ...nestedStory },
+      replay,
+      payload,
+      nextCampaignState
+    );
+  }
+
+  function storyDisplayFromReplayItem(item: CampaignReplayItem): StoryDisplay {
+    const replay = asRecord(item.replay_event);
+    const nestedStory = asRecord(replay.story_event ?? replay.branch_scene ?? replay.final_audit);
+    const eventType: StoryDisplay["eventType"] =
+      item.phase_hint === "branch_scene" || item.phase_hint === "final_audit" ? item.phase_hint : "story_event";
+    return storyDisplayFromRaw(
+      eventType,
+      { ...item.frontend_task, ...replay, ...nestedStory },
+      replay,
+      replay
+    );
+  }
+
+  function replayEventForStory(story: StoryDisplay, at?: string): ReplayEvent {
+    const parsed = at ? new Date(at) : null;
+    const time = parsed && Number.isFinite(parsed.getTime())
+      ? parsed.toLocaleTimeString("zh-CN", { hour12: false })
+      : new Date().toLocaleTimeString("zh-CN", { hour12: false });
     return {
-      seq: event.seq,
-      phase_hint: String(replayEvent.phase_hint ?? event.type),
-      state_before: (payload.state_before ?? replayEvent.state_before ?? {}) as Record<string, unknown>,
-      state_after: (payload.state_after ?? replayEvent.state_after ?? nextCampaignState?.global_state ?? {}) as Record<string, unknown>,
-      frontend_task: frontendTask,
-      outcome: {
-        taskId: String(frontendTask.id),
-        result: "success",
-        scoreLabel: replayEvent.task_id ? `score ${String(replayEvent.score ?? "")}` : "story",
-        stateDelta: (replayEvent.state_delta ?? {}) as Record<string, number>,
-        explanation: String(replayEvent.task_title ?? frontendTask.description ?? frontendTask.title)
-      },
-      replay_event: replayEvent
+      time,
+      day: story.day,
+      branch: runState.activeBranch,
+      taskId: story.id,
+      title: story.title,
+      decision: story.replayText,
+      result: "STORY",
+      stateDelta: {},
+      explanation: story.text
     };
   }
 
+  function applyStoryDisplay(story: StoryDisplay, rawState: Record<string, unknown> = {}, at?: string) {
+    const replay = replayEventForStory(story, at);
+    setCurrentStory(story);
+    setRemoteCurrentTask(null);
+    setLatestOutcome(null);
+    setLatestOutcomeTaskTitle(undefined);
+    setState((prev) => {
+      const next = campaignStateToGlobalState(rawState, prev);
+      const replayExists = prev.replayLog.some((event) => event.taskId === replay.taskId && event.title === replay.title);
+      return {
+        ...next,
+        completedTasks: prev.completedTasks,
+        replayLog: replayExists ? prev.replayLog : [...prev.replayLog, replay]
+      };
+    });
+    setRunState((prev) => ({
+      ...prev,
+      currentDay: story.day,
+      currentTaskId: undefined,
+      currentPhase: story.eventType === "final_audit" ? "resolving" : "replay_logged",
+      taskStatuses: prev.taskStatuses
+    }));
+    EventBus.emit("task:highlight", null);
+    EventBus.emit("agent:move-to-location", story.location);
+    setNotice(`${story.id} · ${story.replayText}`);
+    setPhaseToken((value) => value + 1);
+  }
+
   function applyReplayItem(item: CampaignReplayItem) {
+    if (isCampaignStoryItem(item)) {
+      applyStoryDisplay(storyDisplayFromReplayItem(item), asRecord(item.state_after));
+      return;
+    }
     const task = frontendTaskToRedDustTask(item.frontend_task);
     const outcome = replayItemToOutcome(item);
     const replay = replayItemToReplayEvent(item);
     setRemoteCurrentTask(task);
+    setCurrentStory(null);
     setState((prev) => ({
       ...campaignStateToGlobalState(item.state_after, prev),
       completedTasks: prev.completedTasks.includes(task.id) ? prev.completedTasks : [...prev.completedTasks, task.id],
@@ -353,12 +497,16 @@ export default function App() {
     setLatestOutcome(outcome);
     setLatestOutcomeTaskTitle(task.title);
     EventBus.emit("agent:move-to-location", task.location);
-    EventBus.emit("task:result", { taskId: task.id, result: outcome.result });
+    EventBus.emit("task:result", { taskId: task.id, result: outcome.result, location: task.location });
     setNotice(`Replay step ${item.seq}: ${task.title} -> ${outcome.scoreLabel}`);
     setPhaseToken((value) => value + 1);
   }
 
   function applyCampaignEvent(event: CampaignEvent, nextCampaignState?: CampaignState) {
+    const traceEntry = campaignEventToAgentTraceEntry(event);
+    if (traceEntry) {
+      setAgentTrace((prev) => (prev.some((entry) => entry.id === traceEntry.id) ? prev : [...prev, traceEntry].slice(-240)));
+    }
     const payload = event.payload;
     if (event.type === "agent_connected") {
       setCampaignConnection((prev) => (prev ? { ...prev, connected: true } : prev));
@@ -394,11 +542,8 @@ export default function App() {
       return;
     }
     if (event.type === "story_event" || event.type === "branch_scene" || event.type === "final_audit") {
-      const item = replayItemFromPayload(event, nextCampaignState);
-      if (item) applyReplayItem(item);
-      if (event.type === "final_audit") {
-        setRunState((prev) => ({ ...prev, currentPhase: "resolving" }));
-      }
+      const rawState = asRecord(payload.state_after ?? payload.global_state ?? nextCampaignState?.global_state);
+      applyStoryDisplay(storyDisplayFromEvent(event, nextCampaignState), rawState, event.at);
       return;
     }
     if (event.type === "task_started") {
@@ -411,6 +556,7 @@ export default function App() {
           ? slot.branch
           : "common";
       setRemoteCurrentTask(task);
+      setCurrentStory(null);
       setRunState((prev) => ({
         ...prev,
         currentDay: task.day,
@@ -489,6 +635,8 @@ export default function App() {
     setCampaignReplay({ trace: null, items: [], index: -1 });
     setLatestOutcome(null);
     setRemoteCurrentTask(null);
+    setCurrentStory(null);
+    setAgentTrace([]);
     try {
       const campaign = campaignId
         ? await client.getState(campaignId)
@@ -522,9 +670,11 @@ export default function App() {
     setRunSource("replay");
     setScreen("game");
     setOverlay(null);
-    setRunState({ ...createInitialRunState(runState.speed), isRunning: false, isPaused: true });
+    setRunState({ ...createInitialRunState(runState.speed), isRunning: true, isPaused: false });
     setLatestOutcome(null);
     setRemoteCurrentTask(null);
+    setCurrentStory(null);
+    setAgentTrace([]);
     try {
       const trace = traceUrl ? await client.getTraceUrl(traceUrl) : await client.getTrace(campaignId ?? "");
       const items = trace.frontend_trace ?? [];
@@ -540,9 +690,19 @@ export default function App() {
             }
           : null
       );
-      setCampaignReplay({ trace, items, index: -1 });
-      setState(items[0] ? campaignStateToGlobalState(items[0].state_before, initialState) : campaignStateToGlobalState(trace.global_state ?? {}, initialState));
-      setNotice(`Replay loaded: ${trace.campaign_id}. Use Start, Step, Back, and Speed controls.`);
+      setCampaignReplay({ trace, items, index: items.length > 0 ? 0 : -1 });
+      setAgentTrace((trace.events ?? []).map(campaignEventToAgentTraceEntry).filter((entry): entry is AgentTraceEntry => Boolean(entry)));
+      if (items[0]) {
+        applyReplayItem(items[0]);
+      } else {
+        const firstStoryEvent = (trace.events ?? []).find((event) => event.type === "story_event");
+        if (firstStoryEvent) {
+          applyStoryDisplay(storyDisplayFromEvent(firstStoryEvent, trace), asRecord(trace.global_state), firstStoryEvent.at);
+          return;
+        }
+        setState(campaignStateToGlobalState(trace.global_state ?? {}, initialState));
+        setNotice(`Replay loaded: ${trace.campaign_id}. No frontend trace items were found.`);
+      }
     } catch (error) {
       setNotice(`Replay load failed: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -574,8 +734,27 @@ export default function App() {
     setState(applyReplayItems(campaignReplay.items, nextIndex, state));
     const item = campaignReplay.items[nextIndex];
     if (item) {
+      if (isCampaignStoryItem(item)) {
+        const story = storyDisplayFromReplayItem(item);
+        setCurrentStory(story);
+        setRemoteCurrentTask(null);
+        setLatestOutcome(null);
+        setLatestOutcomeTaskTitle(undefined);
+        setRunState((prev) => ({
+          ...prev,
+          currentDay: story.day,
+          currentTaskId: undefined,
+          currentPhase: story.eventType === "final_audit" ? "resolving" : "replay_logged"
+        }));
+        EventBus.emit("task:highlight", null);
+        EventBus.emit("agent:move-to-location", story.location);
+        setNotice(`Replay rewound to step ${nextIndex + 1}: ${story.title}`);
+        setPhaseToken((value) => value + 1);
+        return;
+      }
       const task = frontendTaskToRedDustTask(item.frontend_task);
       setRemoteCurrentTask(task);
+      setCurrentStory(null);
       setRunState((prev) => ({
         ...prev,
         currentDay: task.day,
@@ -589,6 +768,7 @@ export default function App() {
       EventBus.emit("agent:move-to-location", task.location);
     } else {
       setRemoteCurrentTask(null);
+      setCurrentStory(null);
       setLatestOutcome(null);
       setLatestOutcomeTaskTitle(undefined);
       setRunState((prev) => ({ ...prev, currentTaskId: undefined, currentPhase: "idle" }));
@@ -626,6 +806,7 @@ export default function App() {
     setRunSource("demo");
     setScreen("game");
     setOverlay(null);
+    setCurrentStory(null);
     setNotice("AURA Agent Console loaded. Start Agent Run to watch the benchmark autoplay.");
   }
 
@@ -643,6 +824,8 @@ export default function App() {
     setCampaignConnection(null);
     setCampaignReplay({ trace: null, items: [], index: -1 });
     setRemoteCurrentTask(null);
+    setCurrentStory(null);
+    setAgentTrace([]);
     daySevenSnapshot.current = null;
     EventBus.emit("branch:change", "common");
     EventBus.emit("task:highlight", null);
@@ -709,19 +892,6 @@ export default function App() {
     window.setTimeout(() => advanceAgent(), 0);
   }
 
-  function debugResolve(task: RedDustTask) {
-    if (runSource !== "demo") return;
-    const outcome = resolveTaskOutcome(task);
-    setState((prev) => applyOutcomeToState(prev, task, outcome, runState.activeBranch));
-    setRunState((prev) => ({
-      ...prev,
-      taskStatuses: { ...prev.taskStatuses, [task.id]: outcome.result }
-    }));
-    setLatestOutcome(outcome);
-    setLatestOutcomeTaskTitle(task.title);
-    EventBus.emit("task:result", { taskId: task.id, result: outcome.result });
-  }
-
   function queueNextTask(taskId: string) {
     const task = tasksById[taskId];
     setRunState((prev) => ({
@@ -757,7 +927,7 @@ export default function App() {
     }));
     setLatestOutcome(outcome);
     setLatestOutcomeTaskTitle(task.title);
-    EventBus.emit("task:result", { taskId: task.id, result: outcome.result });
+    EventBus.emit("task:result", { taskId: task.id, result: outcome.result, location: task.location });
     setNotice(`Task resolved: ${task.title}. State Updated.`);
     setPhaseToken((value) => value + 1);
   }
@@ -1006,8 +1176,8 @@ export default function App() {
   );
 
   const game = (
-    <main className="game-screen">
-      <header className="game-header">
+    <main className="game-screen" data-testid="game-screen">
+      <header className="game-header" data-testid="app-header">
         <div>
           <p className="panel-kicker">RED DUST MVP</p>
           <h1>AURA Agent Autoplay Console</h1>
@@ -1036,14 +1206,22 @@ export default function App() {
       />
 
       <section className="autoplay-layout">
-        <div className="stage-wrap">
+        <div className="stage-wrap" data-testid="phaser-stage">
           <PhaserGame />
           <StateDeltaToast outcome={latestOutcome} taskTitle={latestOutcomeTaskTitle} />
           <div className="stage-caption">
             <span>{notice}</span>
           </div>
         </div>
-        <div className="side-stack">
+        <div className="side-stack" data-testid="agent-rail">
+          <AgentTracePanel entries={agentTrace} currentTask={currentTask} currentStory={currentStory} />
+          <AgentConsolePanel
+            runState={runState}
+            currentTask={currentTask}
+            currentStory={currentStory}
+            selectedLocation={selectedLocation}
+            selectedTask={selectedTask}
+          />
           {campaignConnection && runSource === "live" ? (
             <section className="panel campaign-link-panel">
               <p className="panel-kicker">LIVE AGENT LINK</p>
@@ -1071,7 +1249,7 @@ export default function App() {
                   Step {Math.max(0, campaignReplay.index + 1)} / {campaignReplay.items.length}
                 </p>
               </article>
-              <div className="control-row compact">
+              <div className="control-row compact replay-controls">
                 <button className="ghost" onClick={stepReplayBack}>
                   Back
                 </button>
@@ -1079,24 +1257,13 @@ export default function App() {
                   Next
                 </button>
                 {[0, 1, 3, 7, 8, 10, 12].map((day) => (
-                  <button className="ghost" key={day} onClick={() => jumpReplayToDay(day)}>
+                  <button className="ghost replay-jump" key={day} onClick={() => jumpReplayToDay(day)}>
                     D{day}
                   </button>
                 ))}
               </div>
             </section>
           ) : null}
-          <AgentConsolePanel
-            runState={runState}
-            currentTask={currentTask}
-            selectedLocation={selectedLocation}
-            selectedTask={selectedTask}
-            latestOutcome={latestOutcome}
-            nextAction={nextAction}
-            phaseToken={phaseToken}
-            phaseDuration={phaseDuration}
-            onDebugResolve={debugResolve}
-          />
           <LiveReplayFeed events={state.replayLog} />
         </div>
       </section>

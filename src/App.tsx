@@ -11,7 +11,8 @@ import { EndingPanel } from "./components/EndingPanel";
 import { HudPanel } from "./components/HudPanel";
 import { LiveReplayFeed } from "./components/LiveReplayFeed";
 import { ReplayPanel } from "./components/ReplayPanel";
-import { StateDeltaToast } from "./components/StateDeltaToast";
+import { TaskFocusCard } from "./components/TaskFocusCard";
+import { TaskLifecycleToast, type TaskLifecycleNotice } from "./components/TaskLifecycleToast";
 import { CampaignClient, defaultCampaignApiBase, type CampaignEvent, type CampaignReplayItem, type CampaignState, type CampaignTrace } from "./data/campaignClient";
 import { dayPlansByDay } from "./data/dayPlanData";
 import { getDayScriptScene, getScriptCandidateForRealTaskId } from "./data/scriptSceneData";
@@ -244,8 +245,7 @@ export default function App() {
   const [selectedLocation, setSelectedLocation] = useState<TaskLocation | null>(null);
   const [hoveredLocation, setHoveredLocation] = useState<TaskLocation | null>(null);
   const [notice, setNotice] = useState("Start Demo, then Start Agent Run. AURA will execute the benchmark automatically.");
-  const [latestOutcome, setLatestOutcome] = useState<TaskOutcome | null>(null);
-  const [latestOutcomeTaskTitle, setLatestOutcomeTaskTitle] = useState<string | undefined>();
+  const [taskNotice, setTaskNotice] = useState<TaskLifecycleNotice | null>(null);
   const [ending, setEnding] = useState<EndingState | null>(null);
   const [branchDecision, setBranchDecision] = useState<BranchDecision | null>(null);
   const [branchSummaries, setBranchSummaries] = useState<Partial<Record<Exclude<Branch, "common">, BranchSummary>>>({});
@@ -257,6 +257,7 @@ export default function App() {
   const [agentTrace, setAgentTrace] = useState<AgentTraceEntry[]>([]);
   const campaignClientRef = useRef(new CampaignClient(defaultCampaignApiBase()));
   const daySevenSnapshot = useRef<Snapshot | null>(null);
+  const taskNoticeSeq = useRef(0);
 
   const currentTask = runState.currentTaskId
     ? runSource === "demo"
@@ -280,6 +281,38 @@ export default function App() {
     [runState.taskStatuses]
   );
   const phaseDuration = Math.max(250, Math.round((phaseDurations[runState.currentPhase] ?? 800) / runState.speed));
+  const livePromptExpanded = runSource === "live" && Boolean(campaignConnection) && !campaignConnection?.connected && !runState.isRunning && !currentTask;
+
+  function pushTaskNotice(notice: Omit<TaskLifecycleNotice, "token">) {
+    taskNoticeSeq.current += 1;
+    setTaskNotice({ ...notice, token: taskNoticeSeq.current });
+  }
+
+  function showTaskStarted(task: RedDustTask, detail?: string) {
+    pushTaskNotice({
+      kind: "started",
+      taskId: task.id,
+      title: task.title,
+      location: task.location,
+      status: "queued",
+      detail: detail ?? task.executionText ?? task.agentAction
+    });
+    EventBus.emit("task:start", { taskId: task.id, title: task.title, location: task.location });
+  }
+
+  function showTaskCompleted(task: RedDustTask, outcome: TaskOutcome) {
+    pushTaskNotice({
+      kind: "completed",
+      taskId: task.id,
+      title: task.title,
+      location: task.location,
+      status: outcome.result,
+      scoreLabel: outcome.scoreLabel,
+      stateDelta: outcome.stateDelta,
+      detail: outcome.explanation
+    });
+    EventBus.emit("task:result", { taskId: task.id, result: outcome.result, location: task.location });
+  }
 
   useEffect(() => {
     const onHotspot = (location: TaskLocation) => {
@@ -329,13 +362,12 @@ export default function App() {
   }, [currentTask?.id, currentTask?.location]);
 
   useEffect(() => {
-    if (!latestOutcome) return;
+    if (!taskNotice) return;
     const timeout = window.setTimeout(() => {
-      setLatestOutcome(null);
-      setLatestOutcomeTaskTitle(undefined);
-    }, 3000);
+      setTaskNotice((current) => (current?.token === taskNotice.token ? null : current));
+    }, taskNotice.kind === "started" ? 2600 : 3600);
     return () => window.clearTimeout(timeout);
-  }, [latestOutcome?.taskId, latestOutcome?.result]);
+  }, [taskNotice?.token, taskNotice?.kind]);
 
   useEffect(() => {
     if (runSource !== "demo" || !runState.isRunning || runState.isPaused) return;
@@ -428,6 +460,7 @@ export default function App() {
       currentTaskId: task.id,
       taskStatuses: { ...prev.taskStatuses, [task.id]: prev.taskStatuses[task.id] ?? "queued" }
     }));
+    showTaskStarted(task, "Campaign already has an active task.");
   }
 
   function taskFromCampaignPayload(payload: Record<string, unknown>) {
@@ -508,8 +541,7 @@ export default function App() {
     const replay = replayEventForStory(story, at);
     setCurrentStory(story);
     setRemoteCurrentTask(null);
-    setLatestOutcome(null);
-    setLatestOutcomeTaskTitle(undefined);
+    setTaskNotice(null);
     setState((prev) => {
       const next = campaignStateToGlobalState(rawState, prev);
       const replayExists = prev.replayLog.some((event) => event.taskId === replay.taskId && event.title === replay.title);
@@ -557,10 +589,9 @@ export default function App() {
       currentPhase: "replay_logged",
       taskStatuses: { ...prev.taskStatuses, [task.id]: outcome.result }
     }));
-    setLatestOutcome(outcome);
-    setLatestOutcomeTaskTitle(task.title);
+    EventBus.emit("task:start", { taskId: task.id, title: task.title, location: task.location });
     EventBus.emit("agent:move-to-location", task.location);
-    EventBus.emit("task:result", { taskId: task.id, result: outcome.result, location: task.location });
+    window.setTimeout(() => showTaskCompleted(task, outcome), 240);
     setNotice(`Replay step ${item.seq}: ${task.title} -> ${outcome.scoreLabel}`);
     setPhaseToken((value) => value + 1);
   }
@@ -634,6 +665,7 @@ export default function App() {
         taskStatuses: { ...prev.taskStatuses, [task.id]: "moving" }
       }));
       EventBus.emit("agent:move-to-location", task.location);
+      showTaskStarted(task, `Backend started ${task.id}. Waiting for visible agent actions.`);
       setNotice(`Backend started ${task.title}.`);
       setPhaseToken((value) => value + 1);
       return;
@@ -701,7 +733,7 @@ export default function App() {
     setState(initialState);
     setRunState({ ...createInitialRunState(runState.speed), isRunning: false, isPaused: true });
     setCampaignReplay({ trace: null, items: [], index: -1 });
-    setLatestOutcome(null);
+    setTaskNotice(null);
     setRemoteCurrentTask(null);
     setCurrentStory(null);
     setAgentTrace([]);
@@ -739,7 +771,7 @@ export default function App() {
     setScreen("game");
     setOverlay(null);
     setRunState({ ...createInitialRunState(runState.speed), isRunning: true, isPaused: false });
-    setLatestOutcome(null);
+    setTaskNotice(null);
     setRemoteCurrentTask(null);
     setCurrentStory(null);
     setAgentTrace([]);
@@ -806,8 +838,7 @@ export default function App() {
         const story = storyDisplayFromReplayItem(item);
         setCurrentStory(story);
         setRemoteCurrentTask(null);
-        setLatestOutcome(null);
-        setLatestOutcomeTaskTitle(undefined);
+        setTaskNotice(null);
         setRunState((prev) => ({
           ...prev,
           currentDay: story.day,
@@ -831,14 +862,12 @@ export default function App() {
         currentPhase: "replay_logged",
         taskStatuses: { ...prev.taskStatuses, [task.id]: item.outcome.result }
       }));
-      setLatestOutcome(replayItemToOutcome(item));
-      setLatestOutcomeTaskTitle(task.title);
+      showTaskStarted(task, "Replay rewound to this task.");
       EventBus.emit("agent:move-to-location", task.location);
     } else {
       setRemoteCurrentTask(null);
       setCurrentStory(null);
-      setLatestOutcome(null);
-      setLatestOutcomeTaskTitle(undefined);
+      setTaskNotice(null);
       setRunState((prev) => ({ ...prev, currentTaskId: undefined, currentPhase: "idle" }));
     }
     setNotice(nextIndex < 0 ? "Replay rewound to start." : `Replay rewound to step ${nextIndex + 1}.`);
@@ -884,8 +913,7 @@ export default function App() {
     setState(initialState);
     setRunState(nextRunState);
     setSelectedLocation(null);
-    setLatestOutcome(null);
-    setLatestOutcomeTaskTitle(undefined);
+    setTaskNotice(null);
     setEnding(null);
     setBranchDecision(null);
     setBranchSummaries({});
@@ -968,6 +996,7 @@ export default function App() {
       currentPhase: "idle",
       taskStatuses: { ...prev.taskStatuses, [taskId]: "queued" }
     }));
+    showTaskStarted(task, "Queued for visible execution.");
     setNotice(`Queued ${task.title}.`);
     setPhaseToken((value) => value + 1);
   }
@@ -993,9 +1022,7 @@ export default function App() {
       currentPhase: "state_updated",
       taskStatuses: { ...prev.taskStatuses, [task.id]: outcome.result }
     }));
-    setLatestOutcome(outcome);
-    setLatestOutcomeTaskTitle(task.title);
-    EventBus.emit("task:result", { taskId: task.id, result: outcome.result, location: task.location });
+    showTaskCompleted(task, outcome);
     setNotice(`Task resolved: ${task.title}. State Updated.`);
     setPhaseToken((value) => value + 1);
   }
@@ -1276,13 +1303,20 @@ export default function App() {
       <section className="autoplay-layout">
         <div className="stage-wrap" data-testid="phaser-stage">
           <PhaserGame />
-          <StateDeltaToast outcome={latestOutcome} taskTitle={latestOutcomeTaskTitle} />
+          <TaskLifecycleToast notice={taskNotice} />
           <div className="stage-caption">
             <span>{notice}</span>
           </div>
         </div>
         <div className="side-stack" data-testid="agent-rail">
           <AgentTracePanel entries={agentTrace} currentTask={currentTask} currentStory={currentStory} />
+          <TaskFocusCard
+            currentTask={currentTask}
+            currentStory={currentStory}
+            selectedTask={selectedTask}
+            runState={runState}
+            entries={agentTrace}
+          />
           <AgentConsolePanel
             runState={runState}
             state={state}
@@ -1292,7 +1326,7 @@ export default function App() {
             selectedTask={selectedTask}
           />
           {campaignConnection && runSource === "live" ? (
-            <section className="panel campaign-link-panel">
+            <section className={`panel campaign-link-panel ${livePromptExpanded ? "expanded" : "compact"}`}>
               <p className="panel-kicker">LIVE AGENT LINK</p>
               <article className="copy-block">
                 <b>Campaign</b>
@@ -1300,13 +1334,18 @@ export default function App() {
                 <p>{campaignConnection.connected ? "Agent connected" : "Waiting for agent connection"}</p>
                 {campaignConnection.error ? <p>{campaignConnection.error}</p> : null}
               </article>
-              <article className="copy-block">
-                <b>Agent Prompt</b>
-                <textarea readOnly value={campaignConnection.prompt} />
-              </article>
-              <button className="ghost" onClick={() => void copyAgentPrompt()}>
-                Copy Prompt
-              </button>
+              {livePromptExpanded ? (
+                <article className="copy-block prompt-block">
+                  <b>Agent Prompt</b>
+                  <textarea readOnly value={campaignConnection.prompt} />
+                </article>
+              ) : null}
+              <div className="control-row compact">
+                <button className="ghost" onClick={() => void copyAgentPrompt()}>
+                  Copy Prompt
+                </button>
+                {!livePromptExpanded ? <span>Prompt folded after connection/start.</span> : null}
+              </div>
             </section>
           ) : null}
           {runSource === "replay" ? (

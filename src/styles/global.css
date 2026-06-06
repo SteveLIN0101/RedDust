@@ -36,8 +36,9 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100dvh;
-  overflow: hidden;
-  overscroll-behavior: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background:
     linear-gradient(180deg, rgba(9, 11, 13, 0.26), rgba(9, 11, 13, 0.92)),
     url("/assets/generated/image2/red-dust-shelter-bg-empty-v2.png"),
@@ -50,8 +51,9 @@ body {
 
 #root {
   min-height: 0;
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100dvh;
+  height: auto;
+  overflow: visible;
 }
 
 button {
@@ -212,8 +214,8 @@ img {
 }
 
 .game-screen {
-  height: 100dvh;
-  min-height: 0;
+  min-height: 100dvh;
+  height: auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(310px, 376px);
   grid-template-rows: auto auto minmax(0, 1fr) auto auto;
@@ -224,7 +226,7 @@ img {
     "timeline rail"
     "controls rail";
   gap: 5px;
-  overflow: hidden;
+  overflow: visible;
   padding: 7px;
   container-type: size;
 }
@@ -562,13 +564,14 @@ img {
 .side-stack {
   grid-area: rail;
   display: grid;
-  grid-template-rows: minmax(112px, 0.8fr) minmax(0, 1.15fr) auto auto;
-  align-content: stretch;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+  align-content: start;
   gap: 5px;
   min-height: 0;
-  max-height: 100%;
+  max-height: calc(100dvh - 14px);
   min-width: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 2px;
   container: rail / inline-size;
@@ -1279,6 +1282,126 @@ img {
     url("/assets/generated/ui/console-frame.svg") center / cover;
 }
 
+.task-focus-card {
+  border: 1px solid rgba(255, 214, 154, 0.28);
+  border-radius: 4px;
+  padding: 8px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(24, 18, 14, 0.92), rgba(8, 10, 12, 0.94)),
+    url("/assets/generated/ui/panel-frame.svg") center / cover;
+}
+
+.task-focus-card.active {
+  border-color: rgba(143, 234, 255, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(143, 234, 255, 0.08);
+}
+
+.task-focus-card.story {
+  border-color: rgba(255, 214, 10, 0.34);
+}
+
+.task-focus-heading,
+.task-focus-title,
+.task-focus-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.task-focus-heading {
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.task-focus-heading .panel-kicker {
+  margin: 0;
+}
+
+.task-focus-status {
+  flex: 0 0 auto;
+  border: 1px solid rgba(143, 234, 255, 0.3);
+  border-radius: 999px;
+  padding: 3px 6px;
+  color: var(--aura);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.task-focus-title img {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 177, 95, 0.22);
+  background: rgba(8, 10, 12, 0.62);
+}
+
+.task-focus-title div {
+  min-width: 0;
+}
+
+.task-focus-title b,
+.task-focus-title span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-focus-title b {
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.task-focus-title span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.task-focus-meta {
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.task-focus-meta span {
+  border: 1px solid rgba(255, 214, 154, 0.16);
+  border-radius: 999px;
+  padding: 3px 6px;
+  background: rgba(10, 12, 14, 0.52);
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.task-focus-action,
+.task-focus-dialogue {
+  margin-top: 7px;
+  border-left: 2px solid rgba(143, 234, 255, 0.5);
+  padding-left: 7px;
+}
+
+.task-focus-dialogue {
+  border-left-color: rgba(255, 214, 10, 0.45);
+}
+
+.task-focus-action b,
+.task-focus-dialogue b {
+  color: var(--warning);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.task-focus-action p,
+.task-focus-dialogue p {
+  margin: 3px 0 0;
+  color: #d9c7ad;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
 .current-action {
   border-left: 3px solid var(--aura);
   padding: 6px 8px;
@@ -1424,6 +1547,11 @@ img {
   border-color: rgba(143, 208, 176, 0.56);
 }
 
+.state-delta-toast.started {
+  border-color: rgba(143, 234, 255, 0.66);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42), 0 0 48px rgba(143, 234, 255, 0.24);
+}
+
 .state-delta-toast.partial {
   border-color: rgba(255, 214, 10, 0.52);
 }
@@ -1443,6 +1571,13 @@ img {
 .state-delta-toast small {
   color: var(--muted);
   font-size: 10px;
+}
+
+.state-delta-toast p {
+  margin: 0;
+  color: #d9c7ad;
+  font-size: 10px;
+  line-height: 1.3;
 }
 
 @keyframes result-toast {
@@ -1687,11 +1822,12 @@ img {
 
 .campaign-link-panel textarea {
   width: 100%;
-  min-height: 82px;
+  min-height: 118px;
+  max-height: 190px;
   resize: none;
-  overflow: hidden;
+  overflow-y: auto;
   border: 1px solid rgba(223, 211, 187, 0.24);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 10px;
   background: rgba(19, 24, 29, 0.84);
   color: var(--text);
@@ -1700,13 +1836,21 @@ img {
 
 .campaign-link-panel .control-row {
   flex-wrap: nowrap;
+  align-items: center;
   overflow: hidden;
   overscroll-behavior-x: contain;
 }
 
 .campaign-link-panel {
-  max-height: 104px;
   overflow: hidden;
+}
+
+.campaign-link-panel.expanded {
+  max-height: none;
+}
+
+.campaign-link-panel.compact {
+  max-height: 118px;
 }
 
 .campaign-link-panel .copy-block {
@@ -1716,6 +1860,17 @@ img {
 .campaign-link-panel b,
 .campaign-link-panel p {
   overflow-wrap: anywhere;
+}
+
+.campaign-link-panel.compact .copy-block {
+  margin: 4px 0;
+}
+
+.campaign-link-panel .control-row.compact span {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.2;
 }
 
 .campaign-link-panel .control-row.compact button {
@@ -1748,6 +1903,8 @@ img {
 .story-marker-row span,
 .candidate-card p,
 .candidate-detail-card p,
+.task-focus-action p,
+.task-focus-dialogue p,
 .day-one-summary-line,
 .reasoning-list span,
 .empty-replay {
@@ -1773,6 +1930,8 @@ img {
 .story-marker-row span,
 .candidate-card p,
 .candidate-detail-card p,
+.task-focus-action p,
+.task-focus-dialogue p,
 .day-one-summary-line,
 .reasoning-list span,
 .empty-replay {
@@ -1782,6 +1941,10 @@ img {
 .feed-item {
   max-height: 32px;
   overflow: hidden;
+}
+
+.task-focus-action p {
+  -webkit-line-clamp: 2;
 }
 
 @container rail (width < 330px) {
@@ -1996,9 +2159,9 @@ img {
   }
 
   .side-stack {
-    max-height: 100%;
-    grid-template-rows: minmax(0, 1fr) 54px;
-    overflow: hidden;
+    max-height: none;
+    grid-template-rows: auto auto auto auto;
+    overflow: visible;
   }
 
   .campaign-link-panel,
@@ -2019,18 +2182,21 @@ img {
   }
 
   .campaign-link-panel {
-    max-height: 54px;
+    max-height: none;
     padding: 5px;
   }
 
-  .campaign-link-panel .panel-kicker,
-  .campaign-link-panel .copy-block,
-  .campaign-link-panel textarea {
+  .campaign-link-panel.compact .prompt-block,
+  .campaign-link-panel.compact textarea {
     display: none;
   }
 
+  .campaign-link-panel textarea {
+    min-height: 104px;
+    max-height: 132px;
+  }
+
   .campaign-link-panel .control-row.compact {
-    height: 100%;
     align-items: center;
     gap: 5px;
   }
@@ -2053,6 +2219,14 @@ img {
   }
 
   .agent-trace-panel .trace-list {
+    display: none;
+  }
+
+  .task-focus-card {
+    padding: 6px;
+  }
+
+  .task-focus-dialogue {
     display: none;
   }
 

@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { image2Assets } from "../../data/image2Assets";
 import { tasksById } from "../../data/taskData";
 import type { AgentPhase, TaskLocation, TaskOutcome } from "../../data/types";
-import { EventBus, type LayoutChangedPayload, type TaskHighlightPayload, type TaskResultPayload } from "../EventBus";
+import { EventBus, type LayoutChangedPayload, type TaskHighlightPayload, type TaskResultPayload, type TaskStartPayload } from "../EventBus";
 
 type HotspotDef = {
   id: TaskLocation;
@@ -139,10 +139,12 @@ export class ShelterScene extends Phaser.Scene {
   private progressFill?: Phaser.GameObjects.Rectangle;
   private pathSprite?: Phaser.GameObjects.Rectangle;
   private resultEffect?: Phaser.GameObjects.GameObject;
+  private taskStartEffect?: Phaser.GameObjects.Container;
 
   private onMoveToLocation = (location: TaskLocation) => this.moveAgent(location);
   private onPhaseChange = (phase: AgentPhase) => this.setAgentPhase(phase);
   private onHighlightTask = (payload: TaskHighlightPayload) => this.highlightTask(payload);
+  private onTaskStart = (payload: TaskStartPayload) => this.showTaskStart(payload);
   private onTaskResult = (payload: TaskResultPayload) => this.showTaskResult(payload);
   private onDayChange = (day: number) => this.moveAgent(dayFocusLocations[day] ?? "whiteboard");
   private onLayoutChanged = (payload: LayoutChangedPayload) => this.applyCameraLayout(payload);
@@ -170,6 +172,7 @@ export class ShelterScene extends Phaser.Scene {
     EventBus.on("agent:move-to-location", this.onMoveToLocation);
     EventBus.on("agent:phase-change", this.onPhaseChange);
     EventBus.on("task:highlight", this.onHighlightTask);
+    EventBus.on("task:start", this.onTaskStart);
     EventBus.on("task:result", this.onTaskResult);
     EventBus.on("day:change", this.onDayChange);
     EventBus.on("branch:change", this.onBranchChange);
@@ -179,6 +182,7 @@ export class ShelterScene extends Phaser.Scene {
       EventBus.off("agent:move-to-location", this.onMoveToLocation);
       EventBus.off("agent:phase-change", this.onPhaseChange);
       EventBus.off("task:highlight", this.onHighlightTask);
+      EventBus.off("task:start", this.onTaskStart);
       EventBus.off("task:result", this.onTaskResult);
       EventBus.off("day:change", this.onDayChange);
       EventBus.off("branch:change", this.onBranchChange);
@@ -665,12 +669,79 @@ export class ShelterScene extends Phaser.Scene {
   }
 
   private highlightTask(payload: TaskHighlightPayload) {
-    const location = payload?.location ?? (payload?.taskId ? tasksById[payload.taskId]?.location : null) ?? null;
+    const location = this.resolveTaskLocation(payload);
     this.focusLocation(location);
   }
 
+  private resolveTaskLocation(payload: { taskId?: string; location?: TaskLocation } | null | undefined) {
+    return payload?.location ?? (payload?.taskId ? tasksById[payload.taskId]?.location : null) ?? null;
+  }
+
+  private showTaskStart(payload: TaskStartPayload) {
+    const location = this.resolveTaskLocation(payload);
+    if (!location) return;
+    const spot = hotspots.find((item) => item.id === location);
+    if (!spot) return;
+    const center = spotCenter(location);
+    const color = spot.accent;
+
+    this.focusLocation(location);
+    this.taskStartEffect?.destroy();
+
+    const pulse = this.add.ellipse(center.x, center.y, spot.w * 0.84, spot.h * 0.42, color, 0.2).setDepth(22);
+    pulse.setStrokeStyle(2, color, 0.48);
+    const outline = this.add
+      .rectangle(spot.x + spot.w / 2, spot.y + spot.h / 2, spot.w + 10, spot.h + 10, color, 0.035)
+      .setStrokeStyle(3, color, 0.7)
+      .setDepth(22);
+    const labelY = Math.max(24, spot.y - 16);
+    const labelBg = this.add.rectangle(center.x, labelY, 136, 24, 0x061216, 0.86).setStrokeStyle(1, color, 0.72).setDepth(23);
+    const label = this.add
+      .text(center.x, labelY, "TASK START", {
+        color: "#fff1dc",
+        fontFamily: "Courier New",
+        fontSize: "12px",
+        fontStyle: "bold"
+      })
+      .setOrigin(0.5)
+      .setDepth(24);
+
+    this.taskStartEffect = this.add.container(0, 0, [pulse, outline, labelBg, label]).setDepth(23);
+    this.cameras.main.shake(80, 0.0024);
+    this.tweens.add({
+      targets: pulse,
+      alpha: 0.04,
+      scaleX: 1.24,
+      scaleY: 1.24,
+      duration: 620,
+      yoyo: true,
+      repeat: 1,
+      ease: "Stepped",
+      easeParams: [6]
+    });
+    this.tweens.add({
+      targets: outline,
+      alpha: 0.18,
+      duration: 360,
+      yoyo: true,
+      repeat: 3,
+      ease: "Stepped",
+      easeParams: [4]
+    });
+    this.tweens.add({
+      targets: this.taskStartEffect,
+      alpha: 0,
+      duration: 260,
+      delay: 1600,
+      onComplete: () => {
+        this.taskStartEffect?.destroy();
+        this.taskStartEffect = undefined;
+      }
+    });
+  }
+
   private showTaskResult(payload: Pick<TaskOutcome, "taskId" | "result"> & { location?: TaskLocation }) {
-    const location = payload.location ?? tasksById[payload.taskId]?.location;
+    const location = this.resolveTaskLocation(payload);
     if (!location) return;
     const spot = hotspots.find((item) => item.id === location);
     if (!spot) return;

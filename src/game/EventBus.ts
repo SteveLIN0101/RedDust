@@ -22,6 +22,12 @@ export type TaskHighlightPayload = {
   location?: TaskLocation;
 } | null;
 
+export type TaskStartPayload = {
+  taskId: string;
+  title?: string;
+  location?: TaskLocation;
+};
+
 export type TaskResultPayload = Pick<TaskOutcome, "taskId" | "result"> & {
   location?: TaskLocation;
 };
@@ -32,6 +38,7 @@ type GameEvents = {
   "agent:move-to-location": TaskLocation;
   "agent:phase-change": AgentPhase;
   "task:highlight": TaskHighlightPayload;
+  "task:start": TaskStartPayload;
   "task:result": TaskResultPayload;
   "day:change": number;
   "branch:change": Branch;

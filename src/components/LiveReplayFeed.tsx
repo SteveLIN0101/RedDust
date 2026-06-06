@@ -7,7 +7,7 @@ type LiveReplayFeedProps = {
 };
 
 export function LiveReplayFeed({ events }: LiveReplayFeedProps) {
-  const recent = events.slice(-6).reverse();
+  const recent = events.slice(-2).reverse();
 
   return (
     <section className="live-replay-feed">

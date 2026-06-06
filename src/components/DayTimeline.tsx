@@ -8,25 +8,30 @@ type DayTimelineProps = {
 
 export function DayTimeline({ runState }: DayTimelineProps) {
   return (
-    <section className="day-timeline" aria-label="Day timeline">
+    <section className="day-timeline" aria-label="Day timeline" data-testid="day-timeline">
       {dayPlans.map((plan) => {
         const isCurrent = runState.currentDay === plan.day;
         const isDone = runState.currentDay > plan.day || (runState.currentDay === plan.day && runState.currentPhase === "ending");
         const isBranch = plan.day === 7;
         const isAudit = plan.day === 12;
-        const label = plan.day === 0 ? "Prologue" : isAudit ? "Audit" : isBranch ? "Branch" : `Day ${plan.day}`;
+        const label = `D${plan.day}`;
         return (
-          <div className={`timeline-node ${isCurrent ? "current" : ""} ${isDone ? "done" : ""} ${isBranch ? "branch" : ""}`} key={plan.day}>
+          <div
+            className={`timeline-node ${isCurrent ? "current" : ""} ${isDone ? "done" : ""} ${isBranch ? "branch" : ""}`}
+            data-no-overflow
+            key={plan.day}
+            title={`${label} · ${plan.title}${isAudit ? " · Final Audit" : isBranch ? " · Branch" : ""}`}
+          >
             <img alt="" className="timeline-node-art" src={generatedAssetByName["timeline-node"].uiPath} />
             <span>{isDone ? "✓" : isAudit ? "◎" : isBranch ? "◇" : plan.day}</span>
             <b>{label}</b>
           </div>
         );
       })}
-      <div className={`timeline-node ending ${runState.currentPhase === "ending" ? "current" : ""}`}>
+      <div className={`timeline-node ending ${runState.currentPhase === "ending" ? "current" : ""}`} data-no-overflow>
         <img alt="" className="timeline-node-art" src={generatedAssetByName["timeline-node"].uiPath} />
-        <span>◎</span>
-        <b>Ending</b>
+        <span>E</span>
+        <b>End</b>
       </div>
     </section>
   );

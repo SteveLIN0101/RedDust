@@ -28,11 +28,11 @@ export function AgentControlBar({
   onCredits
 }: AgentControlBarProps) {
   return (
-    <section className="agent-control-bar" aria-label="Agent runner controls">
+    <section className="agent-control-bar" aria-label="Agent runner controls" data-testid="bottom-controls">
       <div>
-        <p className="control-label">Agent Run Controls</p>
+        <p className="control-label">Run</p>
         <div className="control-row">
-          <button onClick={onStart}>{runState.isRunning ? "Resume Run" : "Start Agent Run"}</button>
+          <button onClick={onStart}>{runState.isRunning ? "Resume" : "Start"}</button>
           <button className="ghost" onClick={onPause}>
             {runState.isPaused ? "Resume" : "Pause"}
           </button>
@@ -45,10 +45,10 @@ export function AgentControlBar({
             </button>
           ) : null}
           <button className="ghost" onClick={onReset}>
-            Reset Run
+            Reset
           </button>
           <button className="ghost" onClick={onRunBoth}>
-            Run Both Branches
+            Both
           </button>
         </div>
       </div>
@@ -67,10 +67,10 @@ export function AgentControlBar({
         </div>
       </div>
       <div>
-        <p className="control-label">View Panels</p>
+        <p className="control-label">Panels</p>
         <div className="control-row compact">
           <button className="ghost" onClick={onBenchmark}>
-            Benchmark
+            Bench
           </button>
           <button className="ghost" onClick={onReplay}>
             Replay

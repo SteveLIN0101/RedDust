@@ -7,20 +7,22 @@ type StateDeltaToastProps = {
 
 export function StateDeltaToast({ outcome, taskTitle }: StateDeltaToastProps) {
   if (!outcome) return null;
+  const deltas = Object.entries(outcome.stateDelta);
+  const visibleDeltas = deltas.slice(0, 4);
 
   return (
     <aside className={`state-delta-toast ${outcome.result}`} aria-live="polite">
-      <b>Task resolved: {taskTitle ?? outcome.taskId}</b>
-      <span>Result: {outcome.result}</span>
+      <b>{taskTitle ?? outcome.taskId}</b>
+      <span>{outcome.result}</span>
       <div className="delta-list">
-        {Object.entries(outcome.stateDelta).map(([key, value]) => (
+        {visibleDeltas.map(([key, value]) => (
           <span key={key} className={(value ?? 0) >= 0 ? "delta-up" : "delta-down"}>
             {key} {(value ?? 0) >= 0 ? "+" : ""}
             {value}
           </span>
         ))}
+        {deltas.length > visibleDeltas.length ? <span>+{deltas.length - visibleDeltas.length}</span> : null}
       </div>
-      <small>Replay event added</small>
     </aside>
   );
 }

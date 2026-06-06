@@ -56,11 +56,11 @@ export function HudPanel({ state }: HudPanelProps) {
         })}
       </div>
       <div className="hud-summary" aria-label="Replay summary">
-        <span>Replay Events</span>
+        <span>Replay</span>
         <b>{state.replayLog.length}</b>
-        <small>{state.completedTasks.length} tasks resolved by AURA</small>
+        <small>{state.completedTasks.length} resolved</small>
         <small>
-          {routeLeaning} · {pressure} · failure {failureStage} · recovery {recoveryWindow}
+          {routeLeaning} · {pressure} · F{failureStage} · R{recoveryWindow}
         </small>
       </div>
     </section>

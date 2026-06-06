@@ -58,7 +58,7 @@ export function createInitialRunState(speed: 1 | 2 | 4 = 1): AgentRunState {
 export function getDayTaskIds(day: number, branch: Branch) {
   const plan = dayPlansByDay[day];
   if (!plan) return [];
-  if (day <= 7) return plan.commonTasks ?? [];
+  if (plan.commonTasks?.length) return plan.commonTasks;
   if (branch === "rescue") return plan.rescueTasks ?? [];
   if (branch === "lighthouse") return plan.lighthouseTasks ?? [];
   return [];

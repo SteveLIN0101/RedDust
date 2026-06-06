@@ -60,10 +60,9 @@ export const dayPlans: DayPlan[] = [
   {
     day: 8,
     title: "分支后的稳定窗口",
-    narrative: "无论倾向救援还是自治，第一天都先处理地下水泵、霉斑、备用灯和静默监听。",
-    rescueTasks: ["RD-R-A1", "RD-R-A2"],
-    lighthouseTasks: ["RD-L-B1", "RD-L-B2"],
-    endOfDaySummary: "Day 8 完成：分支叙事出现，但普通任务仍维持避难所底盘。"
+    narrative: "路线倾向出现后，AURA 先稳住泵房、霉斑和备用灯；静默监听留作黄昏后台窗口。",
+    commonTasks: ["D08-T04", "D08-T02", "D08-T01", "D08-T03"],
+    endOfDaySummary: "Day 8 完成：代价开始兑现，但 routeLeaning 没有抛弃另一条路线的失败缓冲。"
   },
   {
     day: 9,

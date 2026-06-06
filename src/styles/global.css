@@ -1053,6 +1053,11 @@ img {
   background: rgba(68, 22, 24, 0.28);
 }
 
+.candidate-card.background {
+  border-color: rgba(171, 180, 255, 0.34);
+  background: rgba(24, 28, 58, 0.24);
+}
+
 .candidate-card span {
   display: block;
   color: var(--aura);
@@ -1071,6 +1076,10 @@ img {
 
 .candidate-card.critical_optional span {
   color: #ffb0a8;
+}
+
+.candidate-card.background span {
+  color: #c7ccff;
 }
 
 .candidate-card b {

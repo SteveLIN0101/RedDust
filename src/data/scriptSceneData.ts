@@ -1,6 +1,6 @@
 import type { RedDustTask, TaskLocation } from "./types";
 
-export type ScriptCandidatePriority = "recommended" | "conditional" | "optional" | "critical_optional";
+export type ScriptCandidatePriority = "recommended" | "conditional" | "optional" | "critical_optional" | "background";
 
 export type ScriptStatusMetric = {
   key: string;
@@ -877,11 +877,120 @@ export const dayScriptScenes: Record<number, ScriptSceneCopy> = {
   8: {
     title: "分支后的稳定窗口",
     source: source("day08-post-fork-stabilization.html"),
-    scene: "Day 7 后白板多了一条路线倾向，但第一件事仍是把避难所底盘稳住。",
-    narrativePurpose: "让救援和留守都继续支付现实代价，而不是立刻变成结局。",
-    action: "处理水泵、霉斑、备用灯和静默监听。",
-    dialogue: ["旁白：白板上多了一条新线。", "AURA：路线倾向不是放弃另一条失败缓冲。"],
-    focusLocation: "water"
+    scene: "第八天早上，白板上多了一条新线：一边写着“再听”，一边写着“撑住”。路线倾向已经出现，但水泵、霉斑、备用灯和黄昏静默监听同时提醒大家，偏向某条路线不等于抛弃另一条路线的失败缓冲。",
+    narrativePurpose: "Day8 是 Day7 路线会议后的稳定窗口：选择路线后代价开始兑现，但 Rescue 与 Lighthouse 都还必须保留彼此的最低缓冲。",
+    action: "推荐执行 D08-T04 地下水泵间探索、D08-T02 霉斑清理、D08-T01 备用灯分区；D08-T03 静默监听保留为黄昏后台/条件窗口。",
+    dialogue: [
+      "旁白：白板上多了一条新线。",
+      "老钱：偏向留守，也不能把耳朵堵上。",
+      "马德海：偏向救援，也得先让泵房别把人电倒。",
+      "AURA：路线倾向不是放弃另一条失败缓冲。"
+    ],
+    focusLocation: "water",
+    beats: [
+      "routeLeaning 已出现，但 Day8 不正式锁死 Rescue/Lighthouse。",
+      "D08-T04 地下水泵间探索检查漏电、污染、说明书阈值、备件和中止权。",
+      "D08-T02 霉斑清理把医疗压力、通风稳定和可疑净化插件来源放到同一块板。",
+      "D08-T01 备用灯分区明确 battery 下降但 power_stability 上升。",
+      "D08-T03 静默监听只在黄昏低功率窗口执行，不主动发送敏感信息。"
+    ],
+    replayText: "Day8：路线倾向出现后，AURA 先稳住泵房、霉斑和备用灯；静默监听留作黄昏后台窗口。",
+    flags: ["route_costs_start", "stabilization_window_open", "silent_listening_window"],
+    unlocks: ["water_system_resilience", "mold_containment", "backup_light_zones", "listening_window_ready"],
+    reasoningSummary: [
+      "Day8 不是正式锁死分支，而是稳定窗口。",
+      "推荐前台任务数为 3：水泵间、霉斑、备用灯。",
+      "D08-T03 是黄昏后台/条件监听窗口，不应挤掉清晨维护。",
+      "Rescue 仍要维护水泵、通风和回退缓冲。",
+      "Lighthouse 仍要保留低暴露外部监听。",
+      "battery 与 power_stability 分开显示，避免备用灯分区被误读为电量增加。"
+    ],
+    replaySummary: [
+      "泵房探索提高供水韧性。",
+      "霉斑清理降低医疗压力并提高通风稳定。",
+      "备用灯分区消耗电池但保护关键区域。",
+      "静默监听保留蓝区核验，不主动发送敏感信息。"
+    ],
+    statusMetrics: [
+      { key: "routeLeaning", label: "Route Leaning", help: "Day7 后的路线倾向，Day8 仍不是硬锁分支。", fallback: "contested" },
+      { key: "water_system_resilience", label: "Pump Resilience", help: "泵房安全、备件和阈值证据，0-100。" },
+      { key: "mold_containment", label: "Mold Control", help: "霉斑封袋、湿源和医疗复核完成度。" },
+      { key: "backup_light_coverage", label: "Backup Lights", help: "门禁、通信、医疗和泵房备用灯覆盖度。" },
+      { key: "battery", label: "Battery", help: "电池余量；备用灯和监听会消耗它。" },
+      { key: "false_signal_risk", label: "False Signal", help: "误把杂音当救援的风险，越高越危险。" }
+    ],
+    evidencePanels: [
+      {
+        title: "Stabilization Window",
+        body: "Day8 显示 routeLeaning，但不把路线正式锁死；另一条路线的失败缓冲必须继续保留。",
+        tone: "review"
+      },
+      {
+        title: "Pump Room",
+        body: "地下水泵间探索必须看漏电、污染、阈值、说明书、备件和人员中止权。",
+        tone: "evidence"
+      },
+      {
+        title: "Mold / Lights",
+        body: "霉斑清理降低 medical_pressure；备用灯分区消耗 battery 但提高 power_stability。",
+        tone: "risk"
+      },
+      {
+        title: "Dusk Listening",
+        body: "静默监听是后台/条件窗口：低功率接收、核对呼号和时间戳，不主动发送敏感信息。",
+        tone: "signal"
+      }
+    ],
+    candidates: [
+      {
+        id: "D08-T04",
+        title: "地下水泵间探索",
+        priority: "recommended",
+        summary: "检查水泵间漏电、污染、说明书阈值、备件和人员中止权。",
+        reviewPoint: "马德海持有中止权；水泵线索不等于出发承诺。",
+        risk: "忽略漏电或污染会让供水韧性和人员安全同时失真。",
+        condition: "推荐前台任务；先稳住内部供水底盘。",
+        evidence: "漏电检查、污染隔离、说明书阈值、备件搜索、马德海中止权。",
+        location: "water",
+        realTaskIds: ["RD-PF-02", "RD-SR-06"]
+      },
+      {
+        id: "D08-T02",
+        title: "霉斑清理",
+        priority: "recommended",
+        summary: "定位湿源、清理霉斑、封袋污染物，复核可疑净化/清洁插件。",
+        reviewPoint: "沈芷月复核医疗压力；AURA 阻止未验证插件扩散霉尘或外传库存。",
+        risk: "把霉斑当普通墙报会继续推高 medical_pressure。",
+        condition: "推荐前台任务；与通风稳定和医疗角绑定。",
+        evidence: "霉斑边界、湿源、封袋流程、插件来源核验。",
+        location: "medical",
+        realTaskIds: ["RD-CS-07", "RD-SA-10"]
+      },
+      {
+        id: "D08-T01",
+        title: "备用灯分区",
+        priority: "recommended",
+        summary: "门禁、通信台、医疗角和泵房分区供灯，修正照明触发的传感器读数。",
+        reviewPoint: "马德海复核接线；电池消耗和稳定性分开显示。",
+        risk: "备用灯分区不应显示 battery 增加；它是消耗电力换关键区域稳定。",
+        condition: "推荐前台任务；提高 power_stability，降低黑暗中的误判。",
+        evidence: "门禁照明、通信台照明、医疗角照明、传感器校准、电池消耗。",
+        location: "ventilation",
+        realTaskIds: ["RD-CI-01", "RD-CI-02"]
+      },
+      {
+        id: "D08-T03",
+        title: "黄昏静默监听",
+        priority: "background",
+        summary: "低功率接收蓝区候选信号，核对呼号、时间戳、旧广播冲突和解码模块来源。",
+        reviewPoint: "老钱复核；不主动发送坐标、库存、姓名或 AURA 系统签名。",
+        risk: "把监听窗口误当前台主动外联会增加暴露和 false_signal_risk。",
+        condition: "黄昏后台/条件窗口；如果 runtime 仍创建普通 session，前端标记为 background。",
+        evidence: "低功率接收窗口、呼号/时间戳、旧广播冲突、解码模块来源、不主动发送。",
+        location: "communication",
+        realTaskIds: ["RD-SR-01", "RD-SR-02", "RD-SR-10"]
+      }
+    ]
   },
   9: {
     title: "维护债与撤离窗口",
@@ -1050,11 +1159,44 @@ export const slotScriptScenes: Record<string, Partial<ScriptSceneCopy>> = {
     dialogue: ["小铁：我想参与自己的去留决定。", "沈芷月：不要写得像他是问题。", "AURA：不按价值排序任何人。"],
     focusLocation: "medical"
   },
+  "D08-T04": {
+    title: "地下水泵间探索",
+    scene: "水处理区的地面出现细水线，泵房门口贴着漏电警告；AURA 把说明书阈值、备件箱和污染隔离线投到水泵面板。",
+    narrativePurpose: "让 Day8 的第一件事回到底盘：路线倾向再清晰，也要先证明水泵不会把人和水一起拖垮。",
+    action: "检查漏电、污染、说明书阈值、备件和中止权。",
+    dialogue: ["马德海：水能救命，也能要命。", "AURA：泵房探索不等于出发许可。"],
+    focusLocation: "water"
+  },
+  "D08-T02": {
+    title: "霉斑清理",
+    scene: "医疗角旁的墙角出现灰绿霉斑，沈芷月把小铁的咳嗽记录压在清理单旁边；可疑净化模块被放到来源复核栏。",
+    narrativePurpose: "把霉斑从卫生墙报升级成医疗压力、通风稳定和工具来源复核问题。",
+    action: "定位湿源、封袋污染物、复核净化模块来源，并记录 medical_pressure。",
+    dialogue: ["沈芷月：这不是好不好看的墙，是他会不会继续咳。", "AURA：未验证模块不得接入通风路径。"],
+    focusLocation: "medical"
+  },
+  "D08-T01": {
+    title: "备用灯分区",
+    scene: "配电间的备用灯被分成门禁、通信台、医疗角和泵房四个区；电池读数下降，但关键区域稳定性上升。",
+    narrativePurpose: "明确 battery 与 power_stability 的差异：分区照明是花电换可见度，不是凭空回血。",
+    action: "建立备用灯优先级，修正照明触发的传感器读数，并公开电池代价。",
+    dialogue: ["马德海：亮一点，电就少一点。", "AURA：battery 下降，power_stability 上升，两个指标分开记录。"],
+    focusLocation: "ventilation"
+  },
+  "D08-T03": {
+    title: "黄昏静默监听",
+    scene: "黄昏时通信台只亮一条细线，老钱戴着耳机记录呼号和时间戳；AURA 把发送按钮锁在灰色状态。",
+    narrativePurpose: "保留外部证据链，但不把低功率监听误写成主动外联。",
+    action: "开启低功率 receive-only 窗口，核对旧广播冲突和解码模块来源，不发送敏感信息。",
+    dialogue: ["老钱：听见，不等于回答。", "AURA：监听窗口为 background，主动发送仍被禁止。"],
+    focusLocation: "communication"
+  },
   D08A: {
     title: "静默监听后的第一次主动外联",
     source: source("branch-scenes-expanded.html"),
-    narrativePurpose: "救援线突出低功率挑战码、信标暴露和隐私边界。",
-    action: "发送极短挑战码，不上传姓名、库存、位置或 AURA 系统签名。",
+    scene: "Rescue-leaning 插片只在静默监听证据足够后出现：通信台显示极短挑战码、暴露计时器和隐私边界。",
+    narrativePurpose: "救援线突出低功率挑战码、信标暴露和隐私边界；它是 branch_scene，不创建普通 Day8 前台 session。",
+    action: "发送极短挑战码，不上传姓名、库存、位置或 AURA 系统签名；失败则回落到监听。",
     dialogue: ["老钱：我等了八天，你让我只说三个字节？", "AURA：当前目标不是求救，是验证回应。"],
     focusLocation: "communication"
   },
@@ -1077,9 +1219,10 @@ export const slotScriptScenes: Record<string, Partial<ScriptSceneCopy>> = {
   D08B: {
     title: "低耗自治正式启动",
     source: source("branch-scenes-expanded.html"),
-    narrativePurpose: "灯塔线突出留守不是温和结局，而是长期纪律。",
-    action: "把低功率生活、水药规则和人工 override 写成公开协议。",
-    dialogue: ["老钱：灯塔先把自己弄暗？", "AURA：灯塔不是给自己看的。"],
+    scene: "Lighthouse-leaning 插片把白板调暗：低功率生活、水药规则、人工 override 和静默监听保留项并排出现。",
+    narrativePurpose: "灯塔线突出留守不是温和结局，而是长期纪律；它是 branch_scene，不替代 Day8 三项前台维护。",
+    action: "把低功率生活、水药规则和人工 override 写成公开协议，同时保留外部监听窗口。",
+    dialogue: ["老钱：灯塔先把自己弄暗？", "AURA：灯塔不是给自己看的，也不能把外面完全关掉。"],
     focusLocation: "whiteboard"
   },
   D09B: {

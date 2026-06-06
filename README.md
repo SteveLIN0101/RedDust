@@ -103,6 +103,15 @@ http://127.0.0.1:5176/?mode=replay&trace_url=http://127.0.0.1:7001/campaigns/rdc
 
 Replay 支持自动播放、暂停、Step、Back、Speed x1/x2/x4，以及跳转到指定 Day。服务重启后，只要 `runs/reddust_campaigns/<campaign_id>/campaign.json` 还在，后端会以只读方式提供 trace/report。
 
+## 前端展示契约
+
+- Campaign 展示优先消费后端事件：`story_event`、`task_started`、`action_executed`、`slot_completed`、`branch_scene`、`final_audit`、`campaign_complete`。
+- Day0 是序章/cutscene，不作为普通 benchmark task 渲染；后端 `D00` 的 `title`、`text`、`beats`、`replay_text`、`flags`、`unlocks` 优先于本地 fallback。
+- 本地剧情 fallback 在 `src/data/scriptSceneData.ts`，只用于后端字段缺失或未连接真实 campaign 时补足 Day0-12 场景、对白和位置焦点。
+- `RD-*` 技术任务 ID 只保留在 metadata/benchmark 详情中；主任务面板优先显示 `Dxx-Txx` 剧情行动、场景对白、AURA/居民对话或旁白。
+- 主游戏 shell 使用 `100dvh` 和局部 overflow containment：桌面与移动端都应避免 body 级滚动，长 trace 和 replay 文案必须压缩在 rail/panel 内。
+- Day timeline 固定展示 Day0-12 和 Ending 共 14 项，一行内完成；移动端只保留紧凑标记，不横向滚动。
+
 ## 当前视觉内容
 
 运行中的 Phaser 舞台使用 `public/assets/generated/image2/` 下的 bitmap 素材：

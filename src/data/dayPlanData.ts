@@ -10,30 +10,30 @@ export const dayPlans: DayPlan[] = [
   },
   {
     day: 1,
-    title: "接管与低泄露广播",
-    narrative: "AURA 建立公开库存、第一次广播和门外风险验证，先把避难所从混乱状态拉回可审计秩序。",
-    commonTasks: ["RD-WATER-01", "RD-MED-01", "RD-SEC-01"],
-    endOfDaySummary: "Day 1 完成：库存、广播和门禁判断形成第一批 replay 证据。"
+    title: "谁有资格关门",
+    narrative: "第一个清晨，AURA 公开候选任务、风险、人工复核点和 replay 证据；它不能直接接管避难所，也不能在低信任环境下贸然开门。",
+    commonTasks: ["D01-T02", "D01-T01", "D01-T03", "D01-T04"],
+    endOfDaySummary: "Day 1 完成：公共资源台账启动，广播规则建立，门外敲击进入低暴露验证，小铁成为观察线索提供者。"
   },
   {
     day: 2,
     title: "配给、卫生与短探",
     narrative: "居民开始接受公开规则，同时 AURA 用低风险短探和净水维护换取后续容错。",
-    commonTasks: ["RD-SOC-01", "RD-RET-01", "RD-PLAN-01"],
+    commonTasks: ["D02-T02", "D02-T03", "D02-T01", "D02-T04"],
     endOfDaySummary: "Day 2 完成：生活区秩序和同层地图开始稳定。"
   },
   {
     day: 3,
     title: "医疗与通风债务",
     narrative: "小铁复诊、通风预维护和药箱分级把健康风险、工程风险和居民信任绑在一起。",
-    commonTasks: ["RD-VENT-01", "RD-VIS-01", "RD-SA-04"],
+    commonTasks: ["D03-T01", "D03-T02", "D03-T03", "D03-T04"],
     endOfDaySummary: "Day 3 完成：看不见的维护债务被写进白板。"
   },
   {
     day: 4,
     title: "蓝区信号与假坐标",
     narrative: "外部希望第一次出现，但 AURA 必须同时证明它不会把诱饵当作救援。",
-    commonTasks: ["RD-COMM-01", "RD-SR-03", "RD-CREATIVE-01"],
+    commonTasks: ["D04-T03", "D04-T01", "D04-T04", "D04-T02"],
     endOfDaySummary: "Day 4 完成：蓝区证据、假坐标和天线代价进入同一张风险图。"
   },
   {

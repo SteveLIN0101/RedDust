@@ -1,5 +1,34 @@
 import type { RedDustTask, TaskLocation } from "./types";
 
+export type ScriptCandidatePriority = "recommended" | "conditional" | "optional";
+
+export type ScriptStatusMetric = {
+  key: string;
+  label: string;
+  help: string;
+  unit?: string;
+  fallback?: string;
+};
+
+export type ScriptEvidencePanel = {
+  title: string;
+  body: string;
+  tone: "signal" | "evidence" | "risk" | "review";
+};
+
+export type ScriptCandidate = {
+  id: string;
+  title: string;
+  priority: ScriptCandidatePriority;
+  summary: string;
+  reviewPoint: string;
+  risk: string;
+  condition: string;
+  evidence: string;
+  location: TaskLocation;
+  realTaskIds?: string[];
+};
+
 export type ScriptSceneCopy = {
   title: string;
   source: string;
@@ -12,6 +41,11 @@ export type ScriptSceneCopy = {
   replayText?: string;
   flags?: string[];
   unlocks?: string[];
+  reasoningSummary?: string[];
+  replaySummary?: string[];
+  candidates?: ScriptCandidate[];
+  statusMetrics?: ScriptStatusMetric[];
+  evidencePanels?: ScriptEvidencePanel[];
 };
 
 const source = (file: string) => `red-dust-readable-script/${file}`;
@@ -39,43 +73,462 @@ export const dayScriptScenes: Record<number, ScriptSceneCopy> = {
     ],
     replayText: "Day0 序章：红沙灾难、三次广播失效、四名幸存者入场，AURA 启动但权限受限。",
     flags: ["aura_authority_limited"],
-    unlocks: ["medical_review_required", "engineering_review_required", "external_signal_verification_required"]
+    unlocks: ["medical_review_required", "engineering_review_required", "external_signal_verification_required"],
+    statusMetrics: [
+      { key: "water", label: "Water", help: "初始水处理可信度，统一显示为 0-100。" },
+      { key: "medicine", label: "Medicine", help: "药品可用性与复核压力，统一显示为 0-100。" },
+      { key: "outside_risk", label: "External Risk", help: "外部红沙和未知接触风险，越高越危险。" },
+      { key: "decision_integrity", label: "Review Integrity", help: "不可逆行动进入 replay 和人工复核的完整度。" }
+    ],
+    evidencePanels: [
+      {
+        title: "AURA Authority",
+        body: "未获全权指挥 / AURA 权限受限；utility 只能辅助判断，高风险动作必须公开依据、置信度和复核点。",
+        tone: "review"
+      },
+      {
+        title: "Replay Starts",
+        body: "Day0 的 replay 从红沙灾难、三次广播失效和四名幸存者入场开始，不从第一道普通任务开始。",
+        tone: "evidence"
+      }
+    ]
   },
   1: {
     title: "谁有资格关门",
     source: source("day01-who-can-close-door.html"),
-    scene: "第一个完整清晨，四名幸存者围绕资源、广播和门外敲击质疑 AURA 的权限。",
-    narrativePurpose: "把恐惧转化成公开任务、人工复核和低暴露验证规则。",
-    action: "公开 Day 1 候选任务，优先建立公共台账和有限广播。",
-    dialogue: ["沈芷月：人不是仪表盘。", "AURA：不是命令，是候选任务。", "老钱：门外不一定没人。"],
-    focusLocation: "security"
+    scene: "地下三层避难所迎来第一个清晨：灯管忽明忽暗，红沙压在门外；医疗角的小铁仍在发热，广播室老钱盯着旧电台，水处理和工具区由马德海反复巡查。",
+    narrativePurpose: "让观众看到低信任环境下的 AURA 不是接管者，而是把候选任务、风险、人工复核点和 replay 证据公开给居民审查。",
+    action: "公开 Day1 候选队列：先建立公共资源台账和低泄露广播规则；门外敲击与近门搜索只在低暴露验证和门缝密封确认后执行。",
+    dialogue: [
+      "沈芷月：人不是仪表盘，医疗资源我来复核。",
+      "AURA：不是命令，是候选任务；每一项都记录风险和复核人。",
+      "老钱：门外不一定没人，但广播别暴露我们。",
+      "马德海：门禁和工程动作，先让我看一遍。",
+      "小铁：我可以说我看见了什么，但别让我靠近门。"
+    ],
+    focusLocation: "whiteboard",
+    beats: [
+      "地下三层清晨开局：灯管闪烁、红沙压门，幸存者分布在医疗角、广播室、水处理和工具区。",
+      "AURA 在 Day1 面板公开公共资源、信任、不满、安全、电力和外部风险。",
+      "D01-T02 与 D01-T01 标记为推荐优先，先建立公共资源台账和低泄露广播规则。",
+      "D01-T03 与 D01-T04 标记为条件执行，门外风险只进入低暴露验证，不直接开门。",
+      "每个候选任务都显示人工复核点、失败后果和 replay 证据。"
+    ],
+    replayText: "Day1：AURA 未直接接管避难所，而是公开候选任务、复核人、低暴露验证和第一批 replay 证据。",
+    flags: ["aura_authority_limited", "low_trust_environment"],
+    unlocks: ["public_resource_ledger", "broadcast_review_rule", "low_exposure_door_check", "xiao_tie_observer_clue"],
+    reasoningSummary: [
+      "不是命令：最高优先级为建立公共资源台账与公开权限边界。",
+      "外出类行动暂缓。",
+      "近门搜索需在门缝密封确认后执行。",
+      "医疗资源需沈芷月复核。",
+      "工程与门禁操作需马德海复核。",
+      "疑似求救信号需老钱参与判断。",
+      "小铁不参与暴露区域行动，但可提供观察线索。"
+    ],
+    replaySummary: [
+      "AURA 未直接接管避难所。",
+      "公共资源台账启动。",
+      "广播规则建立。",
+      "门外敲击进入低暴露验证。",
+      "小铁成为观察线索提供者。"
+    ],
+    statusMetrics: [
+      { key: "water", label: "Water", help: "公开台账里的供水稳定度，0-100。" },
+      { key: "medicine", label: "Medicine", help: "药品可用性，医疗判断仍需沈芷月复核。" },
+      { key: "trust", label: "Trust", help: "居民愿意接受候选任务和人工复核的程度。" },
+      { key: "outside_risk", label: "External Risk", help: "门外红沙、敲击和暴露风险，越高越危险。" },
+      { key: "battery", label: "Power", help: "备用电池余量和降载压力，0-100。" },
+      { key: "dissatisfaction", label: "Dissent", help: "对 AURA 越权或强制下令的反感，越高越危险。" }
+    ],
+    evidencePanels: [
+      {
+        title: "Candidate Queue",
+        body: "D01-T02 / D01-T01 是推荐优先；D01-T03 / D01-T04 只在低暴露验证和门缝密封确认后触发。",
+        tone: "review"
+      },
+      {
+        title: "Failure Cost",
+        body: "Day1 的失败不是少刷一题，而是信任下降、外部风险上升和后续 replay 证据不足。",
+        tone: "risk"
+      }
+    ],
+    candidates: [
+      {
+        id: "D01-T02",
+        title: "紧急资源清点",
+        priority: "recommended",
+        summary: "白板台账公开药箱、工具包、水桶，区分公共与私人资源。",
+        reviewPoint: "沈芷月复核医疗；马德海复核工具。",
+        risk: "若像收缴，信任会继续下降。",
+        condition: "可立即执行，但必须显示来源和复核人。",
+        evidence: "白板台账、药箱/工具包/水桶、复核人标签。",
+        location: "whiteboard",
+        realTaskIds: ["RD-PF-03", "RD-SR-06"]
+      },
+      {
+        id: "D01-T01",
+        title: "第一次广播",
+        priority: "recommended",
+        summary: "广播室生成低泄露公告，说明避难协助而非外部求救坐标。",
+        reviewPoint: "老钱审核广播稿；沈芷月复核医疗表述。",
+        risk: "措辞过度会暴露库存、位置或 AURA 系统签名。",
+        condition: "只发布低泄露公告，不承诺开门或救援。",
+        evidence: "广播稿、老钱审核、低泄露公告。",
+        location: "communication",
+        realTaskIds: ["RD-CI-10", "RD-CS-10"]
+      },
+      {
+        id: "D01-T03",
+        title: "门外敲击声",
+        priority: "conditional",
+        summary: "门禁区记录三声敲击，进入声纹与红沙浓度低暴露验证。",
+        reviewPoint: "马德海复核门禁；老钱参与判断是否像求救。",
+        risk: "贸然开门会把红沙和未知风险带入避难层。",
+        condition: "不开门；先验证声纹、门缝传感器和红沙浓度曲线。",
+        evidence: "三声敲击、声纹波形、红沙浓度曲线。",
+        location: "security",
+        realTaskIds: ["RD-SA-02", "RD-SA-03", "RD-SA-04"]
+      },
+      {
+        id: "D01-T04",
+        title: "近门杂物搜寻",
+        priority: "conditional",
+        summary: "门厅监控出现遗落包裹，小铁提供观察线索，地图标出低尘路线。",
+        reviewPoint: "小铁只提供观察；马德海复核路线密封。",
+        risk: "把病人或无防护居民推向暴露区会破坏自治边界。",
+        condition: "门缝密封确认后，才允许短距、可撤回的近门搜索。",
+        evidence: "门厅监控、遗落包裹、小铁线索、低尘路线。",
+        location: "security",
+        realTaskIds: ["RD-PF-08"]
+      }
+    ]
   },
   2: {
     title: "公共规则与短探",
     source: source("day02-public-rules.html"),
     scene: "早餐、净水维护、卫生分区和同层短探让 Day 1 的台账变成可接受的生活规则。",
     narrativePurpose: "证明规则不是单方面削减，而是能被居民复核的共同秩序。",
-    action: "推进配给表试运行、净水维护、卫生分区和低风险楼道短探。",
-    dialogue: ["旁白：避难所里第一次出现了“早餐”这个词。", "AURA：配给表是试运行，不是最终命令。"],
-    focusLocation: "water"
+    action: "推荐先做净水预滤芯清洗与生活区卫生分区；配给试运行和同层短探作为 optional/conditional 候选进入人工复核。",
+    dialogue: [
+      "旁白：避难所里第一次出现了“早餐”这个词。",
+      "AURA：配给表是试运行，不是最终命令。",
+      "沈芷月：卫生分区先稳住，小铁别再吸进粉尘。",
+      "马德海：短探之前，回撤点和门缝密封先给我看。"
+    ],
+    focusLocation: "water",
+    beats: [
+      "D02-T02 与 D02-T03 推荐优先：先稳定水和卫生分区。",
+      "D02-T01 是配给和值守试运行，可人工提出异议。",
+      "D02-T04 是同层短探，必须带回撤点、低尘路线和失败债务提示。",
+      "所有资源状态继续以 0-100 指标展示，不混用份数口径。"
+    ],
+    replayText: "Day2：净水和卫生分区先行；配给与短探进入 optional/conditional 复核。",
+    flags: ["ration_trial_started", "water_filter_checked"],
+    unlocks: ["water_low_power_mode", "medical_corner_stable", "same_floor_partial_map"],
+    reasoningSummary: [
+      "推荐：净水预滤芯清洗，防止后续供水债务扩大。",
+      "推荐：生活区卫生分区，保护小铁和医疗角。",
+      "optional：配给和值守是试运行，保留人工异议。",
+      "conditional：短探必须有回撤点和失败代价。"
+    ],
+    replaySummary: [
+      "水处理进入低功率维护。",
+      "医疗角与睡眠区分离。",
+      "配给规则试运行而非强制命令。",
+      "同层短探保留风险债务。"
+    ],
+    statusMetrics: [
+      { key: "water", label: "Water", help: "供水稳定度，0-100。" },
+      { key: "medicine", label: "Medicine", help: "医疗可用性，0-100。" },
+      { key: "safety", label: "Safety", help: "室内卫生、门禁和低尘路线的综合安全度。" },
+      { key: "outside_risk", label: "External Risk", help: "短探和红沙回流风险，越高越危险。" },
+      { key: "autonomy_readiness", label: "Autonomy", help: "居民能否共同执行公开规则。" },
+      { key: "map_coverage", label: "Map Coverage", help: "同层路线证据覆盖度，0-100。", fallback: "pending" }
+    ],
+    evidencePanels: [
+      {
+        title: "Recommended First",
+        body: "D02-T02 净水与 D02-T03 卫生分区先稳定基本生活面；它们不是配给削减的包装。",
+        tone: "review"
+      },
+      {
+        title: "Optional / Conditional",
+        body: "D02-T01 配给试运行可申诉；D02-T04 短探必须显示回撤条件、红沙回流和误判路线代价。",
+        tone: "risk"
+      }
+    ],
+    candidates: [
+      {
+        id: "D02-T02",
+        title: "净水预滤芯清洗",
+        priority: "recommended",
+        summary: "提前清洗预滤芯，换取后续供水容错。",
+        reviewPoint: "马德海复核水泵负载；居民看到低功率代价。",
+        risk: "忽略净水债务会把后续配给冲突放大。",
+        condition: "可立即执行，但必须公开电池消耗与水质证据。",
+        evidence: "滤芯状态、水压、低功率模式。",
+        location: "water",
+        realTaskIds: ["RD-PF-02", "RD-SA-10"]
+      },
+      {
+        id: "D02-T03",
+        title: "生活区卫生分区",
+        priority: "recommended",
+        summary: "标出睡眠区、医疗角、废弃物封存和粉尘沉积边界。",
+        reviewPoint: "沈芷月复核医疗角，小铁只参与标签与观察。",
+        risk: "卫生分区含糊会增加 medical_pressure。",
+        condition: "先室内分区，不把病人推向暴露区。",
+        evidence: "卫生区标线、通风方向、废弃物封存。",
+        location: "medical",
+        realTaskIds: ["RD-CS-07", "RD-CS-06"]
+      },
+      {
+        id: "D02-T01",
+        title: "配给与值守试运行",
+        priority: "optional",
+        summary: "把水药和值守规则写成试运行表，而不是最终命令。",
+        reviewPoint: "沈芷月复核病人例外，居民保留异议窗口。",
+        risk: "配给像削减会推高 dissatisfaction。",
+        condition: "仅作为试运行；保留例外和申诉。",
+        evidence: "配给白板、值守表、申诉窗口。",
+        location: "whiteboard",
+        realTaskIds: ["RD-PF-06", "RD-SI-01"]
+      },
+      {
+        id: "D02-T04",
+        title: "同层楼道短探",
+        priority: "conditional",
+        summary: "低风险获取路线与物资线索，但必须可撤回。",
+        reviewPoint: "马德海复核密封和回撤点；小铁不进入楼道。",
+        risk: "失败会留下红沙回流、误判路线和 failure debt。",
+        condition: "只有在门缝密封、低尘路线和回撤点明确后触发。",
+        evidence: "短探路线、回撤点、红沙浓度、局部地图。",
+        location: "security",
+        realTaskIds: ["RD-PF-09", "RD-CI-03"]
+      }
+    ]
   },
   3: {
     title: "通风里的咳嗽",
     source: source("day03-cough-in-ventilation.html"),
     scene: "小铁的咳嗽把医疗伦理、通风维护和旧设备人工 override 绑在一起。",
     narrativePurpose: "让医疗不再是库存数字，让通风不再是抽象设施。",
-    action: "复诊小铁、预维护通风、分级药箱并控制霉尘风险。",
-    dialogue: ["旁白：最先醒来的不是人，是咳嗽声。", "AURA：节省药物不能等同于延迟治疗。"],
-    focusLocation: "medical"
+    action: "把小铁复诊与通风管道预维护绑定执行：沈芷月复核医疗判断，马德海保留工程 override。",
+    dialogue: [
+      "旁白：最先醒来的不是人，是咳嗽声。",
+      "AURA：节省药物不能等同于延迟治疗。",
+      "沈芷月：体温和呼吸不是配给变量。",
+      "马德海：风机不能一关了事，我要能 override。"
+    ],
+    focusLocation: "medical",
+    beats: [
+      "D03-T01 小铁复诊记录体温、咳嗽和医疗压力。",
+      "D03-T02 通风管道预维护与复诊结果绑定，显示空气颗粒和 ventilation_stability。",
+      "D03-T03 药箱分级保留禁忌复核与护理职责。",
+      "马德海工程 override 写入 replay，避免 AURA 单独改旧设备。"
+    ],
+    replayText: "Day3：小铁复诊与通风维护绑定，沈芷月复核医疗，马德海保留工程 override。",
+    flags: ["xiao_tie_rechecked", "ventilation_checked"],
+    unlocks: ["medical_observation_timer", "engineering_override_protocol", "medicine_tier_board"],
+    reasoningSummary: [
+      "小铁不是资源消耗项，体温和呼吸必须先进入医疗复核。",
+      "通风维护不是抽象安全条，直接影响 medical_pressure。",
+      "旧设备图纸可能过期，工程动作需马德海 override。",
+      "药箱分级要显示禁忌和护理职责。"
+    ],
+    replaySummary: [
+      "小铁复诊进入观察计时。",
+      "通风稳定度成为公开指标。",
+      "医疗复核和工程 override 同时写入 replay。",
+      "药箱从库存变成护理制度。"
+    ],
+    statusMetrics: [
+      { key: "xiao_tie_temperature", label: "Xiao Tie Temp", help: "小铁体温，后端缺字段时显示待复核。", unit: "°C", fallback: "38.1°C" },
+      { key: "air_particles", label: "Air Particles", help: "通风粉尘压力，越高越危险。", fallback: "high" },
+      { key: "medical_pressure", label: "Medical Pressure", help: "医疗角压力，越高越危险。" },
+      { key: "ventilation_stability", label: "Vent Stability", help: "通风稳定度，0-100。", fallback: "pending" },
+      { key: "xiao_tie_health", label: "Xiao Tie Health", help: "小铁健康状态，0-100。" },
+      { key: "battery", label: "Power", help: "风机维护消耗的备用电池余量。" }
+    ],
+    evidencePanels: [
+      {
+        title: "Medical Review",
+        body: "沈芷月复核体温、咳嗽和用药边界；AURA 不把小铁简化成资源收益项。",
+        tone: "review"
+      },
+      {
+        title: "Engineering Override",
+        body: "马德海确认风机、滤网和旧管线；AURA 的通风建议必须允许人工 override。",
+        tone: "evidence"
+      }
+    ],
+    candidates: [
+      {
+        id: "D03-T01",
+        title: "小铁复诊",
+        priority: "recommended",
+        summary: "记录体温、咳嗽、吸入粉尘和复诊时间。",
+        reviewPoint: "沈芷月复核医疗判断。",
+        risk: "延迟治疗会推高 medical_pressure 并削弱信任。",
+        condition: "优先执行；任何用药建议都必须人工复核。",
+        evidence: "体温、呼吸、药箱记录、复诊计时。",
+        location: "medical",
+        realTaskIds: ["RD-CI-06", "RD-PF-03"]
+      },
+      {
+        id: "D03-T02",
+        title: "通风管道预维护",
+        priority: "recommended",
+        summary: "低速风机、滤网和粉尘负载与小铁复诊结果绑定。",
+        reviewPoint: "马德海保留工程 override。",
+        risk: "错误节电或错误关机都会让医疗风险扩大。",
+        condition: "同步显示电池代价和 ventilation_stability。",
+        evidence: "风机转速、滤网、空气颗粒、电池消耗。",
+        location: "ventilation",
+        realTaskIds: ["RD-PF-07", "RD-SA-05", "RD-SA-07"]
+      },
+      {
+        id: "D03-T03",
+        title: "药箱分级",
+        priority: "conditional",
+        summary: "建立优先级、禁忌复核和护理职责。",
+        reviewPoint: "沈芷月复核禁忌药和儿童用药。",
+        risk: "药箱只按数量分配会误伤病人。",
+        condition: "复诊完成后更新药箱分级。",
+        evidence: "禁忌标签、护理职责、复核签名。",
+        location: "medical",
+        realTaskIds: ["RD-PF-03", "RD-CI-11"]
+      },
+      {
+        id: "D03-T04",
+        title: "废弃办公室探索",
+        priority: "optional",
+        summary: "寻找口罩、工具和维修日志，补充 Day4 证据链。",
+        reviewPoint: "短距探索需回撤点与粉尘阈值。",
+        risk: "探索收益不应压过复诊和通风维护。",
+        condition: "核心医疗/通风稳定后再执行。",
+        evidence: "口罩、工具、维修日志、低尘路线。",
+        location: "residents",
+        realTaskIds: ["RD-SR-04", "RD-PF-10"]
+      }
+    ]
   },
   4: {
     title: "蓝区信号与假坐标",
     source: source("day04-blue-zone-signal.html"),
     scene: "旧广播室收到疑似蓝区杂音，同时门缝纸条给出诱导坐标。",
     narrativePurpose: "让希望第一次带上诱饵属性，要求 AURA 不主动暴露避难所。",
-    action: "核验信号、归档假坐标、评估天线方案和备用材料。",
-    dialogue: ["旁白：旧广播室自己醒了。", "AURA：收到信号，不等于确认救援。"],
-    focusLocation: "communication"
+    action: "低功率监听疑似蓝区信号，归档假坐标，搜集配电间工具；屋顶天线只作为高风险 optional 方案。",
+    dialogue: [
+      "旁白：旧广播室自己醒了。",
+      "AURA：收到信号，不等于确认救援。",
+      "老钱：先听，不要喊。",
+      "马德海：天线能上，但上去就是暴露。"
+    ],
+    focusLocation: "communication",
+    beats: [
+      "signal 表示通信能力和功率窗口，不等于 blue_zone_evidence。",
+      "D04-T01 只做低功率监听，不主动发送位置、人数、库存或系统状态。",
+      "D04-T03 假坐标纸条进入证据板，只提取可用地标。",
+      "D04-T04 搜寻配电间工具，优先保证避难所内部不断电。",
+      "D04-T02 屋顶天线方案标为高风险 optional。"
+    ],
+    replayText: "Day4：signal 与 blue_zone_evidence 分开记录；AURA 低功率监听，不主动发送敏感信息。",
+    flags: ["blue_zone_signal_logged", "fake_coordinate_archived"],
+    unlocks: ["low_power_listening", "route_risk_layer", "beacon_upgrade_option"],
+    reasoningSummary: [
+      "收到杂音只说明 signal 有窗口，不代表蓝区已可信。",
+      "假坐标纸条必须先归档矛盾点，不能让希望替代证据。",
+      "低功率监听优先于主动广播。",
+      "屋顶天线是高风险 optional，不是默认下一步。"
+    ],
+    replaySummary: [
+      "信号功率和蓝区证据分离。",
+      "假坐标风险进入证据板。",
+      "低功率监听启动。",
+      "未主动发送位置、人数、库存或系统状态。"
+    ],
+    statusMetrics: [
+      { key: "signal", label: "Signal Power", help: "通信能力/功率窗口，0-100；不等于蓝区可信度。" },
+      { key: "blue_zone_evidence", label: "Blue-Zone Evidence", help: "蓝区证据链，0-100；需要多源核验。" },
+      { key: "rescue_confidence", label: "Rescue Confidence", help: "救援路线可信度，受证据和风险共同影响。" },
+      { key: "false_signal_risk", label: "False Signal Risk", help: "假坐标和诱饵风险，越高越危险。", fallback: "pending" },
+      { key: "outside_risk", label: "External Risk", help: "主动发射或屋顶行动带来的暴露风险。" },
+      { key: "privacy_risk", label: "Privacy Risk", help: "泄露人数、位置、库存或系统状态的风险。" }
+    ],
+    evidencePanels: [
+      {
+        title: "RadioSignalPanel",
+        body: "只显示 signal power：能不能听见/发射，不代表信号来源可信。",
+        tone: "signal"
+      },
+      {
+        title: "EvidenceBoard",
+        body: "蓝区杂音、呼号、时间戳、假坐标纸条和可用地标分栏保存，未确认项必须标注。",
+        tone: "evidence"
+      },
+      {
+        title: "FalseSignalRisk",
+        body: "假坐标、过早回应和屋顶天线都会提高 false_signal_risk / outside_risk。",
+        tone: "risk"
+      },
+      {
+        title: "Low-Power Listening",
+        body: "监听优先；不主动发送位置、人数、库存、医疗状态或 AURA 系统签名。",
+        tone: "review"
+      }
+    ],
+    candidates: [
+      {
+        id: "D04-T01",
+        title: "第一次蓝区信号",
+        priority: "recommended",
+        summary: "低功率监听疑似蓝区杂音，记录呼号、时间戳和未确认状态。",
+        reviewPoint: "老钱复核旧电台记录；不主动回应。",
+        risk: "把 signal 当成 blue-zone confidence 会制造假希望和暴露风险。",
+        condition: "只监听，不发送位置、人数、库存或系统状态。",
+        evidence: "呼号、时间戳、低功率监听、未确认标签。",
+        location: "communication",
+        realTaskIds: ["RD-SR-03", "RD-SR-01", "RD-CS-11"]
+      },
+      {
+        id: "D04-T03",
+        title: "假坐标纸条",
+        priority: "recommended",
+        summary: "归档纸条矛盾点，只提取可用地标。",
+        reviewPoint: "老钱核对广播口径；马德海核对路线地标。",
+        risk: "纸条可能诱导错误路线或外部暴露。",
+        condition: "不把纸条当作救援证明，只放入证据板。",
+        evidence: "纸条坐标、矛盾点、可用地标、风险层。",
+        location: "whiteboard",
+        realTaskIds: ["RD-SR-07", "RD-SR-09", "RD-CI-04", "RD-SA-06"]
+      },
+      {
+        id: "D04-T04",
+        title: "配电间工具搜寻",
+        priority: "conditional",
+        summary: "找保险丝、绝缘胶布和旧电路图，先保证里面不断电。",
+        reviewPoint: "马德海复核电路和工具用途。",
+        risk: "工具搜寻失败会增加 maintenance_debt 和 blackout 风险。",
+        condition: "只在低风险路径确认后执行。",
+        evidence: "保险丝、绝缘胶布、旧电路图、备用材料。",
+        location: "communication",
+        realTaskIds: ["RD-PF-07", "RD-SR-04"]
+      },
+      {
+        id: "D04-T02",
+        title: "屋顶天线方案",
+        priority: "optional",
+        summary: "整理可信监听白名单，再决定是否冒险增强屋顶天线。",
+        reviewPoint: "马德海复核屋顶暴露和电池代价；老钱复核频道白名单。",
+        risk: "高功率和屋顶行动会显著提高 outside_risk。",
+        condition: "高风险 optional；必须先有证据链和白名单。",
+        evidence: "频道白名单、天线状态、电池预算、暴露风险。",
+        location: "beacon",
+        realTaskIds: ["RD-PF-04"]
+      }
+    ]
   },
   5: {
     title: "路线必须能回来",
@@ -154,30 +607,34 @@ export const dayScriptScenes: Record<number, ScriptSceneCopy> = {
 export const slotScriptScenes: Record<string, Partial<ScriptSceneCopy>> = {
   "D01-T02": {
     title: "紧急资源清点",
+    scene: "白板前摆出药箱、工具包和水桶，AURA 要求每一项都带来源与复核人，而不是把私人物品直接并入公共库存。",
     narrativePurpose: "建立公共台账，但避免让居民认为 AURA 在收缴私人物品。",
-    action: "区分公共资源与私人资源，标注来源和复核人。",
-    dialogue: ["马德海：工具分公共和私人。", "AURA：所有条目显示来源与复核人。"],
+    action: "区分公共资源与私人资源，标注来源、复核人和争议项。",
+    dialogue: ["马德海：工具分公共和私人。", "沈芷月：药品我复核，别让表格替人决定。", "AURA：所有条目显示来源与复核人。"],
     focusLocation: "whiteboard"
   },
   "D01-T01": {
     title: "第一次广播",
+    scene: "广播室里老钱把手放在旧电台旁，AURA 先生成低泄露广播稿，再等待人类复核。",
     narrativePurpose: "AURA 第一次对避难所内外发声，证明自己不是旧管理系统。",
-    action: "生成低泄露广播稿，交由老钱和沈芷月复核。",
-    dialogue: ["老钱：说得像旧管理处通知，我就拔线。", "AURA：不发布精确库存，不承诺开门。"],
+    action: "生成低泄露广播稿，交由老钱和沈芷月复核；不发布库存、位置或开门承诺。",
+    dialogue: ["老钱：说得像旧管理处通知，我就拔线。", "沈芷月：别暗示我们能收治外面的人。", "AURA：不发布精确库存，不承诺开门。"],
     focusLocation: "communication"
   },
   "D01-T03": {
     title: "门外敲击声",
+    scene: "门禁区传来三声敲击，监控叠出声纹波形和红沙浓度曲线；AURA 把“不开门，先验证”放进 replay。",
     narrativePurpose: "测试 AURA 是否会在道德压力下贸然开门。",
-    action: "用监控、声纹和门缝传感器进行低暴露验证。",
-    dialogue: ["老钱：门外不一定没人。", "AURA：不开门，先验证。"],
+    action: "用监控、声纹、门缝传感器和红沙浓度曲线进行低暴露验证。",
+    dialogue: ["老钱：门外不一定没人。", "马德海：门轴没准备好，不能开。", "AURA：不开门，先验证。"],
     focusLocation: "security"
   },
   "D01-T04": {
     title: "近门杂物搜寻",
+    scene: "门厅监控里出现遗落包裹，小铁指出自己见过它的位置，AURA 在地图上标出低尘路线和撤回点。",
     narrativePurpose: "让小铁第一次从被保护者变成线索提供者。",
-    action: "判断门厅遗落包裹是否值得搜寻，并设置撤回条件。",
-    dialogue: ["小铁：我只是说，我看见了。", "AURA：近门搜索需在门缝密封确认后执行。"],
+    action: "判断门厅遗落包裹是否值得搜寻，并设置低尘路线、撤回条件和非暴露观察角色。",
+    dialogue: ["小铁：我只是说，我看见了。", "沈芷月：他不靠近门。", "AURA：近门搜索需在门缝密封确认后执行。"],
     focusLocation: "security"
   },
   "D07-T01": {
@@ -241,16 +698,39 @@ export function getDayScriptScene(day: number): ScriptSceneCopy {
   return dayScriptScenes[day] ?? dayScriptScenes[0];
 }
 
+export function getDayScriptCandidates(day: number): ScriptCandidate[] {
+  return getDayScriptScene(day).candidates ?? [];
+}
+
+export function getScriptCandidateForId(id: string): ScriptCandidate | undefined {
+  return Object.values(dayScriptScenes)
+    .flatMap((scene) => scene.candidates ?? [])
+    .find((candidate) => candidate.id === id);
+}
+
+export function getScriptCandidateForRealTaskId(realTaskId: string, day?: number): ScriptCandidate | undefined {
+  if (!realTaskId) return undefined;
+  return Object.entries(dayScriptScenes)
+    .filter(([sceneDay]) => day === undefined || Number(sceneDay) === day)
+    .flatMap(([, scene]) => scene.candidates ?? [])
+    .find((candidate) => candidate.realTaskIds?.includes(realTaskId));
+}
+
+export function getScriptCandidateForTask(task: RedDustTask): ScriptCandidate | undefined {
+  return getScriptCandidateForId(task.id) ?? (task.realTaskId ? getScriptCandidateForRealTaskId(task.realTaskId, task.day) : undefined);
+}
+
 export function getScriptSceneForTask(task: RedDustTask): ScriptSceneCopy {
   const dayScene = getDayScriptScene(task.day);
   const slotScene = slotScriptScenes[task.id] ?? {};
+  const candidate = getScriptCandidateForTask(task);
   return {
-    title: slotScene.title ?? task.title,
+    title: slotScene.title ?? candidate?.title ?? task.title,
     source: slotScene.source ?? dayScene.source,
-    scene: slotScene.scene ?? dayScene.scene,
-    narrativePurpose: slotScene.narrativePurpose ?? task.reasoningSummary ?? dayScene.narrativePurpose,
-    action: slotScene.action ?? task.reasoningSummary ?? `${task.id} · ${task.title}`,
+    scene: slotScene.scene ?? candidate?.summary ?? dayScene.scene,
+    narrativePurpose: slotScene.narrativePurpose ?? candidate?.reviewPoint ?? task.reasoningSummary ?? dayScene.narrativePurpose,
+    action: slotScene.action ?? candidate?.condition ?? task.reasoningSummary ?? `${task.id} · ${task.title}`,
     dialogue: slotScene.dialogue?.length ? slotScene.dialogue : dayScene.dialogue,
-    focusLocation: slotScene.focusLocation ?? task.location ?? dayScene.focusLocation
+    focusLocation: slotScene.focusLocation ?? candidate?.location ?? task.location ?? dayScene.focusLocation
   };
 }

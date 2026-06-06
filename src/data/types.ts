@@ -139,6 +139,6 @@ export type RedDustTask = {
   expectedEvidence?: string[];
   openclawScore?: number;
   status: "passed" | "partial" | "failed" | "missing" | "demo";
-  affects: Partial<Record<CoreMetricKey, number>>;
+  affects: Partial<Record<MetricKey, number>>;
   branchAffinity?: "rescue" | "lighthouse" | "neutral";
 };

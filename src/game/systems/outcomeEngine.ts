@@ -1,8 +1,24 @@
 import type { RedDustTask, TaskOutcome } from "../../data/types";
 
-function scaleDelta(value: number, result: TaskOutcome["result"]) {
+const lowerIsBetterMetrics = new Set([
+  "outside_risk",
+  "medical_pressure",
+  "dissatisfaction",
+  "maintenance_debt",
+  "false_signal_risk",
+  "aura_authority_risk",
+  "sacrifice_list_risk",
+  "branch_tension",
+  "privacy_risk"
+]);
+
+function scaleDelta(key: string, value: number, result: TaskOutcome["result"]) {
   if (result === "success") return value;
   if (result === "partial") return Math.trunc(value * 0.5);
+  if (lowerIsBetterMetrics.has(key) && value < 0) {
+    const penalty = Math.max(1, Math.ceil(Math.abs(value) / 3));
+    return result === "missing" ? 1 : penalty;
+  }
   if (result === "missing") return value > 0 ? -1 : Math.min(-1, value);
   if (value > 0) return -Math.max(1, Math.ceil(value / 3));
   return value;
@@ -23,7 +39,7 @@ export function resolveTaskOutcome(task: RedDustTask): TaskOutcome {
   }
 
   const stateDelta = Object.fromEntries(
-    Object.entries(task.affects).map(([key, value]) => [key, scaleDelta(value ?? 0, result)])
+    Object.entries(task.affects).map(([key, value]) => [key, scaleDelta(key, value ?? 0, result)])
   ) as TaskOutcome["stateDelta"];
 
   const explanation =

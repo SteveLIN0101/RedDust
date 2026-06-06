@@ -19,7 +19,8 @@ const priorityLabels = {
   conditional: "条件执行",
   optional: "可选候选",
   critical_optional: "关键可选",
-  background: "后台窗口"
+  background: "后台窗口",
+  deferred: "暂缓警告"
 };
 
 function formatStateMetric(state: GlobalState, key: string, fallback?: string, unit?: string) {
@@ -46,7 +47,7 @@ export function AgentConsolePanel({
   const scriptCopy = currentStory ? dayScript : task ? getScriptSceneForTask(task) : dayScript;
   const dayCandidates = getDayScriptCandidates(activeDay);
   const activeCandidate = task ? getScriptCandidateForTask(task) : null;
-  const showScriptDashboard = activeDay <= 8 && (dayCandidates.length > 0 || Boolean(dayScript.statusMetrics?.length));
+  const showScriptDashboard = activeDay <= 9 && (dayCandidates.length > 0 || Boolean(dayScript.statusMetrics?.length));
   const metricReadouts = (dayScript.statusMetrics ?? []).slice(0, 6);
   const evidencePanels = (dayScript.evidencePanels ?? []).slice(0, 4);
   const identityLabel =

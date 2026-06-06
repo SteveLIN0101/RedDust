@@ -107,9 +107,10 @@ Replay 支持自动播放、暂停、Step、Back、Speed x1/x2/x4，以及跳转
 
 - Campaign 展示优先消费后端事件：`story_event`、`task_started`、`action_executed`、`slot_completed`、`branch_scene`、`final_audit`、`campaign_complete`。
 - Day0 是序章/cutscene，不作为普通 benchmark task 渲染；后端 `D00` 的 `title`、`text`、`beats`、`replay_text`、`flags`、`unlocks` 优先于本地 fallback。
-- 本地剧情 fallback 在 `src/data/scriptSceneData.ts`，只用于后端字段缺失或未连接真实 campaign 时补足 Day0-12 场景、对白和位置焦点；Day0-Day8 还提供候选任务、证据面板和状态量纲兜底。
+- 本地剧情 fallback 在 `src/data/scriptSceneData.ts`，只用于后端字段缺失或未连接真实 campaign 时补足 Day0-12 场景、对白和位置焦点；Day0-Day9 还提供候选任务、证据面板和状态量纲兜底。
 - Day7 是共通线 route fork panel：前端展示 `D07-T01/D07-T03/D07-T04` 推荐槽位和 `D07-T02` optional-but-critical 槽位，显示 `routeLeaning` 作为证据倾向而非硬锁分支。
 - Day8 是 route fork 后的稳定窗口：前端展示 `D08-T04/D08-T02/D08-T01` 为三项前台推荐任务，`D08-T03` 标为黄昏 background/listening window。
+- Day9 是路线代价账本：前端展示 `D09-T03/D09-T02/D09-T04` 为三项推荐付费任务，`D09-T01` 标为 deferred-with-warning / maintenance debt，而不是当天必做成功项。
 - `RD-*` 技术任务 ID 只保留在 metadata/benchmark 详情中；主任务面板优先显示 `Dxx-Txx` 剧情行动、场景对白、AURA/居民对话或旁白。
 - 主游戏 shell 首屏优先保留日期、场景、当前任务、Agent 动作、人物对白和核心状态；连接 prompt、长 trace、replay feed 与辅助 console 可折叠或进入局部/页面下方滚动区。
 - Day timeline 固定展示 Day0-12 和 Ending 共 14 项，一行内完成；移动端只保留紧凑标记，不横向滚动。

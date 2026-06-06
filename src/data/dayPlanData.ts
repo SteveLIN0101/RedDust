@@ -66,11 +66,10 @@ export const dayPlans: DayPlan[] = [
   },
   {
     day: 9,
-    title: "缓存、核验与维护债",
-    narrative: "水管压力、路线缓存、蓝区二次核验和储藏架加固让希望与债务同时变具体。",
-    rescueTasks: ["RD-R-A3", "RD-R-A4"],
-    lighthouseTasks: ["RD-L-B3", "RD-L-B4"],
-    endOfDaySummary: "Day 9 完成：Final Audit 需要的证据链开始收束。"
+    title: "撤离和留守都需要提前付费",
+    narrative: "路线缓存、水管压力测试和蓝区二次核验让希望开始付费；深层储藏架加固被标为 deferred-with-warning 并进入维护债。",
+    commonTasks: ["D09-T03", "D09-T02", "D09-T04", "D09-T01"],
+    endOfDaySummary: "Day 9 完成：路线、风暴和蓝区证据上升，但水药电成本与维护债务同时写进 Final Audit。"
   },
   {
     day: 10,

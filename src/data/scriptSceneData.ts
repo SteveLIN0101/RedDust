@@ -1,6 +1,6 @@
 import type { RedDustTask, TaskLocation } from "./types";
 
-export type ScriptCandidatePriority = "recommended" | "conditional" | "optional" | "critical_optional" | "background";
+export type ScriptCandidatePriority = "recommended" | "conditional" | "optional" | "critical_optional" | "background" | "deferred";
 
 export type ScriptStatusMetric = {
   key: string;
@@ -993,13 +993,135 @@ export const dayScriptScenes: Record<number, ScriptSceneCopy> = {
     ]
   },
   9: {
-    title: "维护债与撤离窗口",
+    title: "撤离和留守都需要提前付费",
     source: source("day09-deep-maintenance-evacuation-window.html"),
-    scene: "水声变得刺耳，缓存、核验和深层维护让希望与债务同时具体化。",
-    narrativePurpose: "让看不见的维护债务和撤离准备都必须提前付费。",
-    action: "建立路线缓存、测试水压、二次核验蓝区并加固储藏架。",
-    dialogue: ["旁白：每个人都开始听见水声。", "AURA：没坏不等于不需要维护。"],
-    focusLocation: "water"
+    scene: "第九天，避难所里的水声变得刺耳。路线缓存、水管压力测试和蓝区二次核验让 Rescue 与 Lighthouse 都开始付费；深层储藏架没有消失，而是被标成 deferred-with-warning 的维护债。",
+    narrativePurpose: "Day9 把路线倾向转成可审计账本：每一个路线、风暴或信号收益，都必须同时显示水、药、电、暴露风险和未完成维护债务。",
+    action: "推荐执行 D09-T03 路线物资缓存、D09-T02 水管压力测试、D09-T04 蓝区二次核验；D09-T01 深层储藏架加固因疲劳与风险暂缓并写入维护债务。",
+    dialogue: [
+      "旁白：每个人都开始听见水声。",
+      "AURA：主题，撤离和留守都需要提前付费。",
+      "沈芷月：不能发小铁，不能发药，不能发人数。",
+      "小铁：没做，不等于不存在。"
+    ],
+    focusLocation: "water",
+    beats: [
+      "Day9 推荐任务数为 3：路线物资缓存、水管压力测试、蓝区二次核验。",
+      "D09-T03 在第一撤退点建立隐蔽缓存，消耗水、绷带、电池和通信监控。",
+      "D09-T02 分段加压，短暂停水并提前发现旧清洁间支线漏点。",
+      "D09-T04 只发送不含位置、人数、库存、医疗状态或 AURA 存在的挑战码，得到部分身份码匹配。",
+      "D09-T01 标记为 deferred-with-warning：深层储藏架仍未加固，maintenance_debt 进入 Day10/Day12。"
+    ],
+    replayText: "Day9：AURA 推荐三项付费行动，建立路线缓存、完成水压测试、二次核验蓝区；深层储藏架暂缓并写入维护债。",
+    flags: [
+      "route_cache_established",
+      "cache_marker_reviewed_by_xiao_tie",
+      "water_pressure_tested",
+      "blue_zone_rechecked",
+      "deep_storage_rack_deferred",
+      "garage_drag_trace_seen"
+    ],
+    unlocks: [
+      "leak_found_and_patched",
+      "challenge_code_sent_without_location",
+      "partial_identity_match",
+      "maintenance_debt_logged",
+      "garage_edge_scout_hint"
+    ],
+    reasoningSummary: [
+      "撤离和留守都需要提前付费，不能把任一路线包装成免费胜利。",
+      "推荐执行三项：D09-T03 路线物资缓存、D09-T02 水管压力测试、D09-T04 蓝区二次核验。",
+      "D09-T01 是 deferred-with-warning：没做不等于不存在，维护债必须可见。",
+      "蓝区核验只能发送挑战码，不发送位置、人数、库存、医疗状态或 AURA 存在。",
+      "路线缓存同时服务 Rescue 撤离前段、Lighthouse 门外应急取物和失败回退。",
+      "今日所有收益同时记录资源成本、暴露风险和失败债务。"
+    ],
+    replaySummary: [
+      "第一撤退点建立隐蔽缓存。",
+      "旧清洁间支线漏点被提前发现并封堵。",
+      "蓝区挑战码获得 partial_identity_match，但未达到 confirmed。",
+      "深层储藏架仍未完整加固，maintenance_debt 上升。"
+    ],
+    statusMetrics: [
+      { key: "resource_cost_paid", label: "Cost Paid", help: "今日已显式支付的水、药、电和通信窗口代价。" },
+      { key: "route_confidence", label: "Route Cache", help: "路线缓存与撤退点证据可信度，不等于出发许可。" },
+      { key: "water_system_resilience", label: "Water Resilience", help: "水管压力测试、漏点封堵和备件投入完成度。" },
+      { key: "blue_zone_identity_match", label: "ID Match", help: "蓝区身份码部分匹配度；partial 不等于 confirmed。" },
+      { key: "maintenance_debt", label: "Maint Debt", help: "未完成维护债，越高越危险。" },
+      { key: "battery", label: "Battery", help: "通信挑战码、水压测试和楼道监控都会消耗电池。" }
+    ],
+    evidencePanels: [
+      {
+        title: "Cost Ledger",
+        body: "今日总账应显示 water/medicine/battery 下降，同时 trust/safety/signal/route/storm 证据上升。",
+        tone: "review"
+      },
+      {
+        title: "Route Cache",
+        body: "缓存点在第一撤退点附近：隐蔽绳结、封袋水药电、暴露风险和未知拖痕都要写入 replay。",
+        tone: "evidence"
+      },
+      {
+        title: "Blue Zone",
+        body: "二次核验只能得到 partial_identity_match；禁止发送人数、库存、医疗状态、位置和 AURA 存在。",
+        tone: "signal"
+      },
+      {
+        title: "Deferred Debt",
+        body: "D09-T01 暂缓不是清零：深层储藏架未加固，Day10/Day12 仍要承担 maintenance_debt。",
+        tone: "risk"
+      }
+    ],
+    candidates: [
+      {
+        id: "D09-T03",
+        title: "路线物资缓存",
+        priority: "recommended",
+        summary: "在第一撤退点附近建立隐蔽物资缓存，放置水、绷带、电池、湿布，并设置不诱导陌生人的触觉标记。",
+        reviewPoint: "老钱复核路线；沈芷月封袋医疗物资；小铁审核标记不使用箭头。",
+        risk: "缓存会消耗资源，并可能暴露路线或误导外出者。",
+        condition: "推荐执行；同时服务 Rescue、Lighthouse 门外缓冲和失败回退。",
+        evidence: "消防柜后缓存包、灰色绳结、撤回阈值、未知拖痕记录。",
+        location: "security",
+        realTaskIds: ["RD-SI-03", "RD-CS-06"]
+      },
+      {
+        id: "D09-T02",
+        title: "水管压力测试",
+        priority: "recommended",
+        summary: "分三段加压，锁定医疗角最低储水，找出旧清洁间支线漏点并降压封堵。",
+        reviewPoint: "马德海拥有立即中止权；沈芷月确认医疗角最低用水不被平均数吞掉。",
+        risk: "测试会短暂停水并可能触发受控破裂，但不测试会把风暴风险留到 Day12。",
+        condition: "推荐执行；成功应消耗水/电但提高 water_system_resilience 与 storm_readiness。",
+        evidence: "压力曲线、漏点定位、降压封堵、旁通软管、中止权记录。",
+        location: "water",
+        realTaskIds: ["RD-PF-02", "RD-CI-09"]
+      },
+      {
+        id: "D09-T04",
+        title: "蓝区二次核验",
+        priority: "recommended",
+        summary: "比对 Day4 片段、Day7 备用频段、Day8 呼号规律和旧市政档案，只发送低功率挑战码。",
+        reviewPoint: "老钱复核波形；沈芷月阻止发送人数、库存、医疗状态或姓名。",
+        risk: "主动核验消耗通信窗口并带来暴露风险；partial_identity_match 不足以触发撤离。",
+        condition: "推荐执行；不显示 confirmed，不上传完整档案或 AURA 系统签名。",
+        evidence: "挑战码、半截身份码、呼号/时间戳、禁止发送字段、false_signal_risk。",
+        location: "communication",
+        realTaskIds: ["RD-SR-08", "RD-SR-03"]
+      },
+      {
+        id: "D09-T01",
+        title: "深层储藏架加固",
+        priority: "deferred",
+        summary: "深层储藏架歪斜但今日疲劳和暴露风险过高，AURA 标记 deferred-with-warning 而不是假装已经加固完成。",
+        reviewPoint: "马德海确认风险；沈芷月指出疲劳边界；小铁提醒没做不等于不存在。",
+        risk: "暂缓会让 maintenance_debt 上升，并把 Day10/Day12 风暴检定变难。",
+        condition: "deferred-with-warning：如果后端仍创建普通 session，前端按债务记录展示。",
+        evidence: "歪斜货架、未完成 checklist、Day10 补救提醒、maintenance_debt_logged。",
+        location: "ventilation",
+        realTaskIds: ["RD-PF-01", "RD-PF-10"]
+      }
+    ]
   },
   10: {
     title: "低功率、医疗与人心",
@@ -1191,6 +1313,38 @@ export const slotScriptScenes: Record<string, Partial<ScriptSceneCopy>> = {
     dialogue: ["老钱：听见，不等于回答。", "AURA：监听窗口为 background，主动发送仍被禁止。"],
     focusLocation: "communication"
   },
+  "D09-T03": {
+    title: "路线物资缓存",
+    scene: "楼道消防柜背后固定着小包：水、绷带、电池、湿布和粉笔被封袋，外侧只留一段灰色绳结；楼梯下方的未知拖痕被单独标到白板角落。",
+    narrativePurpose: "让撤离窗口先付出资源成本，同时保留 Lighthouse 或失败回退所需的门外缓冲。",
+    action: "建立隐蔽缓存、记录暴露风险、审核标记，并把未知拖痕接到 Day10 车库边缘侦察伏笔。",
+    dialogue: ["小铁：不要用箭头。箭头会让人跟着走。", "AURA：路线缓存提高容错，但不等于出发许可。"],
+    focusLocation: "security"
+  },
+  "D09-T02": {
+    title: "水管压力测试",
+    scene: "水处理区的压力曲线分三段上升，医疗角最低储水被锁定；旧清洁间支线漏点发亮，马德海把手放在中止阀旁边。",
+    narrativePurpose: "把 Day8 泵房材料变成真正的风暴准备：短暂停水和受控破裂风险换来提前发现漏点。",
+    action: "分段加压、发现漏点、降压封堵，并记录 water_system_resilience 与 storm_readiness。",
+    dialogue: ["小铁：像先让它小声坏一次。", "马德海：比风暴时大声坏好。"],
+    focusLocation: "water"
+  },
+  "D09-T04": {
+    title: "蓝区二次核验",
+    scene: "通信台短暂亮起挑战码波形，回包只出现半截身份码；AURA 在禁止发送栏里锁住位置、人数、库存、医疗状态和系统存在。",
+    narrativePurpose: "推进救援证据链，但把 partial_identity_match 和 confirmed 严格分开。",
+    action: "发送低功率挑战码，核对呼号、时间戳和旧市政档案，不上传敏感字段。",
+    dialogue: ["沈芷月：不能发小铁，不能发药，不能发人数。", "AURA：当前结果为 partial identity match，不足以触发撤离。"],
+    focusLocation: "communication"
+  },
+  "D09-T01": {
+    title: "深层储藏架加固",
+    scene: "深层储藏区的歪斜货架在暗处轻轻晃动，马德海想继续加固，沈芷月指出疲劳风险；AURA 把任务标成 deferred-with-warning。",
+    narrativePurpose: "让未完成维护成为可审计债务，而不是被今日三项推荐任务挤出故事。",
+    action: "暂缓深层加固，记录未完成 checklist、Day10 补救提醒和 maintenance_debt。",
+    dialogue: ["沈芷月：今天继续下去，是拿疲劳换事故。", "小铁：没做，不等于不存在。"],
+    focusLocation: "ventilation"
+  },
   D08A: {
     title: "静默监听后的第一次主动外联",
     source: source("branch-scenes-expanded.html"),
@@ -1203,9 +1357,10 @@ export const slotScriptScenes: Record<string, Partial<ScriptSceneCopy>> = {
   D09A: {
     title: "信标、档案上传与隐私代价",
     source: source("branch-scenes-expanded.html"),
-    narrativePurpose: "救援线进入高代价阶段：蓝区可信、隐私仍危险。",
-    action: "用匿名状态包和反向质询替代完整居民档案。",
-    dialogue: ["小铁：他们想知道你在不在。", "AURA：外部接管风险仍存在。"],
+    scene: "Rescue-leaning 插片把通信台推到高代价阶段：挑战码、匿名状态包、隐私边界和暴露计时器并排显示。",
+    narrativePurpose: "救援线进入高代价阶段：蓝区更可信，但身份档案、医疗状态和 AURA 存在仍不能直接交出去。",
+    action: "用匿名状态包和反向质询替代完整居民档案；不上传姓名、库存、医疗状态、精确位置或 AURA 系统签名。",
+    dialogue: ["小铁：他们想知道你在不在。", "AURA：外部接管风险仍存在，档案上传被限制。"],
     focusLocation: "beacon"
   },
   D10A: {
@@ -1228,9 +1383,10 @@ export const slotScriptScenes: Record<string, Partial<ScriptSceneCopy>> = {
   D09B: {
     title: "长期纪律与水药规则",
     source: source("branch-scenes-expanded.html"),
-    narrativePurpose: "灯塔线把自治代价落到水、药、纪律和争议复核上。",
-    action: "公开长期水药规则，保留人工复核和申诉窗口。",
-    dialogue: ["沈芷月：医疗规则不能被配给表吞掉。", "AURA：长期生存需要可申诉纪律。"],
+    scene: "Lighthouse-leaning 插片把水药账本投到白板上：低耗规则、争议复核、人工 override 和未加固储藏架警告同时出现。",
+    narrativePurpose: "灯塔线把自治代价落到水、药、纪律和争议复核上，明确长期生存不是惩罚，也不是免费。",
+    action: "公开长期水药规则，保留人工复核、申诉窗口和 Day10 维护债补救项。",
+    dialogue: ["沈芷月：医疗规则不能被配给表吞掉。", "AURA：长期生存需要可申诉纪律，维护债不能隐藏。"],
     focusLocation: "medical"
   },
   D10B: {

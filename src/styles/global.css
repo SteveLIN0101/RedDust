@@ -1058,6 +1058,11 @@ img {
   background: rgba(24, 28, 58, 0.24);
 }
 
+.candidate-card.deferred {
+  border-color: rgba(255, 214, 10, 0.48);
+  background: rgba(80, 42, 12, 0.3);
+}
+
 .candidate-card span {
   display: block;
   color: var(--aura);
@@ -1080,6 +1085,10 @@ img {
 
 .candidate-card.background span {
   color: #c7ccff;
+}
+
+.candidate-card.deferred span {
+  color: var(--warning);
 }
 
 .candidate-card b {
@@ -1116,6 +1125,10 @@ img {
 
 .candidate-detail-card.optional {
   border-left-color: rgba(143, 234, 255, 0.42);
+}
+
+.candidate-detail-card.deferred {
+  border-left-color: rgba(255, 214, 10, 0.62);
 }
 
 .evidence-panel-grid {

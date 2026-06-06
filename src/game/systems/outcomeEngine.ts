@@ -6,6 +6,7 @@ const lowerIsBetterMetrics = new Set([
   "dissatisfaction",
   "maintenance_debt",
   "false_signal_risk",
+  "cache_exposure_risk",
   "aura_authority_risk",
   "sacrifice_list_risk",
   "branch_tension",

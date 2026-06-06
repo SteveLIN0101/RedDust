@@ -18,7 +18,8 @@ const priorityLabels = {
   conditional: "条件执行",
   optional: "可选候选",
   critical_optional: "关键可选",
-  background: "后台窗口"
+  background: "后台窗口",
+  deferred: "暂缓警告"
 };
 
 function shortJson(value: unknown) {

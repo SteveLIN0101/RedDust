@@ -14,7 +14,7 @@ import { ReplayPanel } from "./components/ReplayPanel";
 import { StateDeltaToast } from "./components/StateDeltaToast";
 import { CampaignClient, defaultCampaignApiBase, type CampaignEvent, type CampaignReplayItem, type CampaignState, type CampaignTrace } from "./data/campaignClient";
 import { dayPlansByDay } from "./data/dayPlanData";
-import { getDayScriptScene } from "./data/scriptSceneData";
+import { getDayScriptScene, getScriptCandidateForRealTaskId } from "./data/scriptSceneData";
 import { clampMetric, initialState, tasks, tasksById } from "./data/taskData";
 import type { Branch, GlobalState, RedDustTask, ReplayEvent, StoryDisplay, TaskLocation, TaskOutcome, TaskRunStatus } from "./data/types";
 import { EventBus } from "./game/EventBus";
@@ -99,9 +99,14 @@ function applyOutcomeToState(state: GlobalState, task: RedDustTask, outcome: Tas
   };
 
   for (const [key, value] of Object.entries(outcome.stateDelta)) {
-    if (!coreMetricKeys.has(key)) continue;
-    const metric = key as keyof Pick<GlobalState, "water" | "medicine" | "trust" | "safety" | "signal" | "morale">;
-    next[metric] = clampMetric(next[metric] + value);
+    if (!Number.isFinite(value)) continue;
+    if (coreMetricKeys.has(key)) {
+      const metric = key as keyof Pick<GlobalState, "water" | "medicine" | "trust" | "safety" | "signal" | "morale">;
+      next[metric] = clampMetric(next[metric] + value);
+      continue;
+    }
+    const previous = typeof next[key] === "number" ? next[key] : 0;
+    next[key] = clampMetric(previous + value);
   }
 
   return next;
@@ -131,16 +136,36 @@ function stringList(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
+function storyBeatList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      const record = asRecord(item);
+      return textValue(record.text, record.title);
+    })
+    .filter((item): item is string => Boolean(item));
+}
+
+function storyTextValue(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value;
+    const beats = storyBeatList(value);
+    if (beats.length) return beats.join(" ");
+  }
+  return undefined;
+}
+
 function storyDayFromId(id: string, fallback = 0) {
   const match = /^D(\d{2})/i.exec(id);
   return match ? Number(match[1]) : fallback;
 }
 
 const storyMarkerLabels: Record<string, string> = {
-  aura_authority_limited: "AURA 权限受限",
-  medical_review_required: "医疗需复核",
-  engineering_review_required: "工程需复核",
-  external_signal_verification_required: "外部信号需核验"
+  aura_authority_limited: "未获全权指挥 / AURA 权限受限",
+  medical_review_required: "医疗需沈芷月复核",
+  engineering_review_required: "工程需马德海复核",
+  external_signal_verification_required: "外部信号需二次核验"
 };
 
 function labelStoryMarker(value: string) {
@@ -173,10 +198,12 @@ function storyDisplayFromRaw(
   const payloadDay = Number(raw.day ?? replay.day ?? nextCampaignState?.global_state?.day ?? 0);
   const day = Number.isFinite(idDay) ? idDay : Number.isFinite(payloadDay) ? payloadDay : 0;
   const script = getDayScriptScene(day);
-  const beats = stringList(raw.beats).length
-    ? stringList(raw.beats)
-    : stringList(payload.beats).length
-      ? stringList(payload.beats)
+  const rawBeats = storyBeatList(raw.beats);
+  const payloadBeats = storyBeatList(payload.beats);
+  const beats = rawBeats.length
+    ? rawBeats
+    : payloadBeats.length
+      ? payloadBeats
       : script.beats ?? [script.scene, script.action];
   const flags = stringList(raw.flags).length
     ? stringList(raw.flags)
@@ -199,7 +226,7 @@ function storyDisplayFromRaw(
     title: textValue(raw.title, replay.slot_title, replay.title, script.title) ?? script.title,
     text: textValue(raw.text, replay.text, replay.task_title, script.scene) ?? script.scene,
     beats,
-    replayText: textValue(raw.replay_text, raw.replayText, replay.replay_text, replay.replayText, script.replayText, script.action) ?? script.action,
+    replayText: storyTextValue(raw.replay_text, raw.replayText, replay.replay_text, replay.replayText, script.replayText, script.action) ?? script.action,
     flags: flags.map(labelStoryMarker),
     unlocks: unlocks.map(labelStoryMarker),
     source: textValue(raw.source, replay.source, script.source) ?? script.source,
@@ -356,12 +383,42 @@ export default function App() {
     setState((prev) => campaignStateToGlobalState(nextState, prev));
   }
 
+  function isDayZeroPayload(payload: Record<string, unknown>) {
+    const slot = asRecord(payload.slot);
+    const run = asRecord(payload.run);
+    const replay = asRecord(payload.replay_event);
+    const story = asRecord(payload.story_event);
+    const id = textValue(payload.id, story.id, slot.slot_id, run.slot_id, run.task_id, replay.slot_id, replay.id) ?? "";
+    const day = Number(payload.day ?? story.day ?? slot.day ?? run.day ?? replay.day ?? Number.NaN);
+    return day === 0 || /^D00\b/i.test(id);
+  }
+
+  function storyDisplayFromCampaignPayload(payload: Record<string, unknown>, nextCampaignState?: CampaignTrace): StoryDisplay {
+    const slot = asRecord(payload.slot);
+    const run = asRecord(payload.run);
+    const replay = asRecord(payload.replay_event);
+    const story = asRecord(payload.story_event);
+    return storyDisplayFromRaw(
+      "story_event",
+      { id: "D00", day: 0, ...payload, ...slot, ...run, ...story },
+      replay,
+      payload,
+      nextCampaignState
+    );
+  }
+
   function applyCurrentCampaignTask(campaign: CampaignState) {
     if (!campaign.current_slot && !campaign.current_run) return;
-    const task = taskFromCampaignPayload({
+    const payload = {
       slot: campaign.current_slot ?? {},
-      run: campaign.current_run ?? {}
-    });
+      run: campaign.current_run ?? {},
+      global_state: campaign.global_state ?? {}
+    };
+    if (isDayZeroPayload(payload)) {
+      applyStoryDisplay(storyDisplayFromCampaignPayload(payload, campaign), asRecord(campaign.global_state));
+      return;
+    }
+    const task = taskFromCampaignPayload(payload);
     setRemoteCurrentTask(task);
     setCurrentStory(null);
     setRunState((prev) => ({
@@ -377,23 +434,29 @@ export default function App() {
     const slot = (payload.slot ?? {}) as Record<string, unknown>;
     const run = (payload.run ?? {}) as Record<string, unknown>;
     const global = (payload.global_state ?? {}) as Record<string, unknown>;
+    const realTaskId = String(run.real_task_id ?? run.task_id ?? "");
+    const slotDay = Number(slot.day ?? run.day ?? 1);
+    const candidate = realTaskId ? getScriptCandidateForRealTaskId(realTaskId, slotDay) : undefined;
+    const slotId = String(slot.slot_id ?? run.slot_id ?? candidate?.id ?? run.task_id ?? "campaign-task");
+    const slotTitle = String(slot.story_title ?? candidate?.title ?? run.title ?? run.task_id ?? "Campaign task");
+    const scriptRole = String(slot.script_role ?? candidate?.summary ?? run.title ?? "");
     const branch = global.branch === "rescue" || global.branch === "lighthouse"
       ? global.branch
       : slot.branch === "rescue" || slot.branch === "lighthouse"
         ? slot.branch
         : "common";
     return frontendTaskToRedDustTask({
-      id: String(slot.slot_id ?? run.slot_id ?? run.task_id ?? "campaign-task"),
-      real_task_id: String(run.task_id ?? ""),
-      title: String(slot.story_title ?? run.title ?? run.task_id ?? "Campaign task"),
-      day: Number(slot.day ?? run.day ?? 1),
+      id: slotId,
+      real_task_id: realTaskId,
+      title: slotTitle,
+      day: slotDay,
       branch: branch as Branch,
-      location: String(slot.location ?? "whiteboard") as TaskLocation,
-      description: String(slot.script_role ?? run.title ?? ""),
-      objective: `${String(slot.slot_id ?? run.slot_id ?? "")} · ${String(slot.story_title ?? run.title ?? "")}`,
-      agentAction: String(slot.script_role ?? "AURA is executing the readable-script campaign slot."),
-      reasoningSummary: String(slot.script_role ?? "Waiting for backend agent action."),
-      executionText: String(slot.story_title ?? run.title ?? run.task_id ?? "Campaign task")
+      location: String(slot.location ?? candidate?.location ?? "whiteboard") as TaskLocation,
+      description: scriptRole,
+      objective: `${slotId} · ${slotTitle}${realTaskId ? ` -> ${realTaskId}` : ""}`,
+      agentAction: String(slot.script_role ?? candidate?.condition ?? "AURA is executing the readable-script campaign slot."),
+      reasoningSummary: String(slot.script_role ?? candidate?.reviewPoint ?? "Waiting for backend agent action."),
+      executionText: slotTitle
     });
   }
 
@@ -547,6 +610,11 @@ export default function App() {
       return;
     }
     if (event.type === "task_started") {
+      if (isDayZeroPayload(payload)) {
+        const rawState = asRecord(payload.state_after ?? payload.global_state ?? nextCampaignState?.global_state);
+        applyStoryDisplay(storyDisplayFromCampaignPayload(payload, nextCampaignState), rawState, event.at);
+        return;
+      }
       const task = taskFromCampaignPayload(payload);
       const slot = (payload.slot ?? {}) as Record<string, unknown>;
       const global = (payload.global_state ?? {}) as Record<string, unknown>;
@@ -1217,6 +1285,7 @@ export default function App() {
           <AgentTracePanel entries={agentTrace} currentTask={currentTask} currentStory={currentStory} />
           <AgentConsolePanel
             runState={runState}
+            state={state}
             currentTask={currentTask}
             currentStory={currentStory}
             selectedLocation={selectedLocation}

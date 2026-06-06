@@ -18,5 +18,7 @@ export function summarizeReplayLine(event: ReplayEvent) {
   const deltas = Object.entries(event.stateDelta)
     .map(([key, value]) => `${key} ${value >= 0 ? "+" : ""}${value}`)
     .join(" | ");
-  return `[D${event.day}] ${event.title} -> ${event.result.split(" | ")[0]} | ${deltas}`;
+  const outcome = event.result.split(" | ")[0];
+  const evidence = event.explanation || event.decision;
+  return `[D${String(event.day).padStart(2, "0")}] ${event.title} -> ${outcome}${deltas ? ` | ${deltas}` : ` | ${evidence}`}`;
 }

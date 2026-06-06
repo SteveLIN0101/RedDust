@@ -1,5 +1,5 @@
 import type { CampaignEvent } from "../data/campaignClient";
-import { getScriptSceneForTask } from "../data/scriptSceneData";
+import { getScriptCandidateForTask, getScriptSceneForTask } from "../data/scriptSceneData";
 import type { RedDustTask, StoryDisplay } from "../data/types";
 
 export type AgentTraceEntry = {
@@ -11,6 +11,12 @@ export type AgentTraceEntry = {
   title: string;
   detail: string;
   status?: "ok" | "warn" | "error";
+};
+
+const priorityLabels = {
+  recommended: "推荐优先",
+  conditional: "条件执行",
+  optional: "可选候选"
 };
 
 function shortJson(value: unknown) {
@@ -137,7 +143,19 @@ export function AgentTracePanel({ entries, currentTask, currentStory }: AgentTra
       ? entries.filter((entry) => entry.slotId === currentStory.id || entry.title === currentStory.title)
     : [];
   const visibleEntries = (scopedEntries.length ? scopedEntries : entries).slice(-3).reverse();
-  const primary = visibleEntries[0];
+  const candidateCopy = currentTask ? getScriptCandidateForTask(currentTask) : null;
+  const fallbackPrimary = currentTask && candidateCopy
+    ? {
+        id: `${currentTask.id}:candidate`,
+        at: "",
+        type: "task_started" as CampaignEvent["type"],
+        slotId: currentTask.id,
+        title: `${priorityLabels[candidateCopy.priority]} · ${candidateCopy.title}`,
+        detail: `${candidateCopy.reviewPoint} · 证据链：${candidateCopy.evidence} · 风险代价：${candidateCopy.risk}`,
+        status: candidateCopy.priority === "recommended" ? "ok" as const : "warn" as const
+      }
+    : null;
+  const primary = visibleEntries[0] ?? fallbackPrimary;
   const scriptCopy = currentTask ? getScriptSceneForTask(currentTask) : null;
 
   return (
@@ -171,7 +189,7 @@ export function AgentTracePanel({ entries, currentTask, currentStory }: AgentTra
         <article className="trace-script-strip">
           <b>{currentTask.id} · {scriptCopy.title}</b>
           <span>{scriptCopy.source}</span>
-          <p>{scriptCopy.scene}</p>
+          <p>{candidateCopy ? `${candidateCopy.condition} · ${candidateCopy.risk}` : scriptCopy.scene}</p>
         </article>
       ) : null}
       {!currentStory && primary ? (

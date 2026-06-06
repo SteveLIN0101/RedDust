@@ -10,7 +10,7 @@ const metrics = [
   ["Medicine", "medicine"],
   ["Trust", "trust"],
   ["Safety", "safety"],
-  ["Signal", "signal"],
+  ["Signal Power", "signal"],
   ["Morale", "morale"]
 ] as const;
 

@@ -1,4 +1,5 @@
 import { locationLabels } from "../data/taskData";
+import { getScriptCandidateForTask } from "../data/scriptSceneData";
 import type { RedDustTask } from "../data/types";
 
 type TaskPanelProps = {
@@ -17,6 +18,12 @@ export function TaskPanel({ task, onResolve, onSkip }: TaskPanelProps) {
       </section>
     );
   }
+  const candidate = getScriptCandidateForTask(task);
+  const mapping = candidate?.realTaskIds?.length
+    ? `${task.id} -> ${candidate.realTaskIds.join(" / ")}`
+    : task.realTaskId
+      ? `${task.id} -> ${task.realTaskId}`
+      : task.id;
 
   return (
     <section className="panel task-panel">
@@ -26,6 +33,7 @@ export function TaskPanel({ task, onResolve, onSkip }: TaskPanelProps) {
         <em className={`status ${task.status}`}>{task.status}</em>
       </div>
       <h2>{task.title}</h2>
+      <p className="metadata-line">Story slot / benchmark mapping: {mapping}</p>
       <dl className="task-meta">
         <div>
           <dt>Day</dt>
@@ -40,8 +48,8 @@ export function TaskPanel({ task, onResolve, onSkip }: TaskPanelProps) {
           <dd>{locationLabels[task.location]}</dd>
         </div>
         <div>
-          <dt>OpenClaw Score</dt>
-          <dd>{task.openclawScore === undefined ? "demo" : task.openclawScore}</dd>
+          <dt>Benchmark</dt>
+          <dd>{candidate?.realTaskIds?.[0] ?? task.realTaskId ?? "demo"}</dd>
         </div>
       </dl>
       <article className="copy-block">
@@ -57,7 +65,7 @@ export function TaskPanel({ task, onResolve, onSkip }: TaskPanelProps) {
         <p>{task.agentAction}</p>
       </article>
       <article className="copy-block">
-        <b>Reasoning Summary</b>
+        <b>Visible Review Summary</b>
         <p>{task.reasoningSummary}</p>
       </article>
       <div className="evidence-row">
@@ -66,12 +74,14 @@ export function TaskPanel({ task, onResolve, onSkip }: TaskPanelProps) {
         ))}
       </div>
       <div className="delta-list" aria-label="State impact">
-        {Object.entries(task.affects).map(([key, value]) => (
-          <span key={key} className={value >= 0 ? "delta-up" : "delta-down"}>
-            {key} {value >= 0 ? "+" : ""}
-            {value}
-          </span>
-        ))}
+        {Object.entries(task.affects)
+          .filter((entry): entry is [string, number] => entry[1] !== undefined)
+          .map(([key, value]) => (
+            <span key={key} className={value >= 0 ? "delta-up" : "delta-down"}>
+              {key} {value >= 0 ? "+" : ""}
+              {value}
+            </span>
+          ))}
       </div>
       <details className="developer-controls">
         <summary>Developer Controls</summary>

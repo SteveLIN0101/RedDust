@@ -215,7 +215,7 @@ img {
   height: 100dvh;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  grid-template-columns: minmax(0, 1fr) minmax(310px, 376px);
   grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   grid-template-areas:
     "header header"
@@ -223,9 +223,9 @@ img {
     "stage rail"
     "timeline rail"
     "controls rail";
-  gap: 6px;
+  gap: 5px;
   overflow: hidden;
-  padding: 8px;
+  padding: 7px;
   container-type: size;
 }
 
@@ -246,7 +246,7 @@ img {
 .game-header h1 {
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(18px, 2.4vw, 28px);
+  font-size: clamp(17px, 2vw, 24px);
   line-height: 1;
   color: #ffe1b3;
 }
@@ -419,9 +419,9 @@ img {
   grid-area: timeline;
   display: grid;
   grid-template-columns: repeat(14, minmax(0, 1fr));
-  gap: 3px;
+  gap: 2px;
   min-height: 0;
-  height: 40px;
+  height: 38px;
   margin-top: 0;
   overflow: hidden;
   padding-bottom: 2px;
@@ -431,13 +431,13 @@ img {
 .timeline-node {
   position: relative;
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
+  grid-template-columns: 17px minmax(0, 1fr);
   align-items: center;
-  gap: 3px;
-  min-height: 36px;
+  gap: 2px;
+  min-height: 34px;
   border: 1px solid rgba(255, 214, 154, 0.14);
   border-radius: 4px;
-  padding: 4px;
+  padding: 3px;
   background: rgba(10, 12, 14, 0.58);
   color: var(--muted);
   white-space: nowrap;
@@ -458,12 +458,12 @@ img {
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   border-radius: 50%;
   background: rgba(255, 214, 154, 0.08);
   color: var(--sand);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 800;
 }
 
@@ -472,7 +472,7 @@ img {
   z-index: 1;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 9px;
+  font-size: 8px;
 }
 
 .timeline-node.current {
@@ -562,9 +562,9 @@ img {
 .side-stack {
   grid-area: rail;
   display: grid;
-  grid-template-rows: minmax(112px, 0.85fr) minmax(120px, 0.75fr) minmax(62px, auto) minmax(52px, auto);
+  grid-template-rows: minmax(112px, 0.8fr) minmax(0, 1.15fr) auto auto;
   align-content: stretch;
-  gap: 6px;
+  gap: 5px;
   min-height: 0;
   max-height: 100%;
   min-width: 0;
@@ -772,6 +772,10 @@ img {
 .trace-item p,
 .story-detail-card .story-beat-list span,
 .story-marker-row span,
+.candidate-card p,
+.candidate-detail-card p,
+.day-one-summary-line,
+.reasoning-list span,
 .feed-item,
 .empty-replay {
   display: -webkit-box;
@@ -794,6 +798,10 @@ img {
 .trace-item p,
 .story-detail-card .story-beat-list span,
 .story-marker-row span,
+.candidate-card p,
+.candidate-detail-card p,
+.day-one-summary-line,
+.reasoning-list span,
 .feed-item,
 .empty-replay {
   -webkit-line-clamp: 1;
@@ -824,8 +832,8 @@ img {
 }
 
 .agent-console-panel {
-  min-height: 152px;
-  max-height: min(32dvh, 260px);
+  min-height: 0;
+  max-height: min(38dvh, 302px);
   position: relative;
   overflow: hidden;
   background:
@@ -958,6 +966,207 @@ img {
   color: var(--warning);
   font-size: 9px;
   line-height: 1.2;
+}
+
+.day-one-state-row,
+.story-state-row {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  margin: 5px 0;
+}
+
+.day-one-state-row span,
+.story-state-row span {
+  display: flex;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 4px;
+  border: 1px solid rgba(143, 234, 255, 0.14);
+  border-radius: 4px;
+  padding: 3px 5px;
+  background: rgba(8, 18, 22, 0.42);
+  color: var(--ink);
+  font-size: 9px;
+  line-height: 1;
+  overflow: hidden;
+}
+
+.day-one-state-row b,
+.story-state-row b {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.day-one-summary-line {
+  position: relative;
+  z-index: 1;
+  margin: 5px 0;
+  border-left: 2px solid rgba(143, 234, 255, 0.54);
+  padding: 4px 6px;
+  background: rgba(8, 18, 22, 0.42);
+  color: #e9d8bb;
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.candidate-queue {
+  margin: 5px 0;
+}
+
+.candidate-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.candidate-card {
+  min-height: 42px;
+  border: 1px solid rgba(143, 234, 255, 0.18);
+  border-radius: 4px;
+  padding: 4px;
+  background: rgba(8, 18, 22, 0.42);
+  overflow: hidden;
+}
+
+.candidate-card.recommended {
+  border-color: rgba(121, 214, 168, 0.38);
+}
+
+.candidate-card.conditional {
+  border-color: rgba(255, 214, 10, 0.3);
+}
+
+.candidate-card.optional {
+  border-color: rgba(143, 234, 255, 0.28);
+}
+
+.candidate-card span {
+  display: block;
+  color: var(--aura);
+  font-size: 7px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.candidate-card.conditional span {
+  color: var(--warning);
+}
+
+.candidate-card.optional span {
+  color: var(--aura);
+}
+
+.candidate-card b {
+  display: inline-block;
+  margin-top: 3px;
+  color: var(--ink);
+  font-size: 8px;
+  line-height: 1;
+}
+
+.candidate-card small {
+  display: block;
+  margin-top: 2px;
+  color: rgba(217, 199, 173, 0.72);
+  font-size: 7px;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.candidate-card p,
+.candidate-detail-card p {
+  margin: 2px 0 0;
+  color: #d9c7ad;
+  font-size: 8px;
+  line-height: 1.2;
+}
+
+.candidate-detail-card {
+  border-left: 2px solid rgba(255, 214, 10, 0.42);
+  padding-left: 7px;
+}
+
+.candidate-detail-card.optional {
+  border-left-color: rgba(143, 234, 255, 0.42);
+}
+
+.evidence-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  margin: 5px 0;
+}
+
+.evidence-panel {
+  min-height: 38px;
+  border: 1px solid rgba(255, 214, 154, 0.13);
+  border-radius: 4px;
+  padding: 4px 5px;
+  background: rgba(10, 12, 14, 0.48);
+  overflow: hidden;
+}
+
+.evidence-panel.signal {
+  border-color: rgba(143, 234, 255, 0.28);
+}
+
+.evidence-panel.evidence,
+.evidence-panel.review {
+  border-color: rgba(121, 214, 168, 0.24);
+}
+
+.evidence-panel.risk {
+  border-color: rgba(255, 214, 10, 0.28);
+}
+
+.evidence-panel b {
+  display: block;
+  color: var(--warning);
+  font-size: 8px;
+  line-height: 1;
+}
+
+.evidence-panel p {
+  display: -webkit-box;
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: #d9c7ad;
+  font-size: 8px;
+  line-height: 1.18;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.reasoning-card {
+  margin-top: 5px;
+}
+
+.reasoning-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.reasoning-list span {
+  border: 1px solid rgba(255, 214, 154, 0.13);
+  border-radius: 4px;
+  padding: 3px 5px;
+  background: rgba(10, 12, 14, 0.44);
+  color: #e9d8bb;
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.current-story-compact {
+  margin-top: 5px;
 }
 
 .compact-reference p {
@@ -1537,6 +1746,10 @@ img {
 .trace-item p,
 .story-detail-card .story-beat-list span,
 .story-marker-row span,
+.candidate-card p,
+.candidate-detail-card p,
+.day-one-summary-line,
+.reasoning-list span,
 .empty-replay {
   display: -webkit-box;
   overflow: hidden;
@@ -1558,6 +1771,10 @@ img {
 .trace-item p,
 .story-detail-card .story-beat-list span,
 .story-marker-row span,
+.candidate-card p,
+.candidate-detail-card p,
+.day-one-summary-line,
+.reasoning-list span,
 .empty-replay {
   -webkit-line-clamp: 1;
 }

@@ -12,15 +12,14 @@ export function ReplayPanel({ events, onClose }: ReplayPanelProps) {
         <div className="modal-heading">
           <div>
             <p className="panel-kicker">REPLAY TRACE</p>
-            <h2>Auditable agent decisions</h2>
+            <h2>Evidence, review, and risk costs</h2>
           </div>
           <button className="ghost" onClick={onClose}>
             Close
           </button>
         </div>
         <p className="benchmark-note">
-          Replay makes Red Dust auditable: each agent decision can be reviewed as a benchmark trace rather
-          than a black-box game action.
+          Replay shows visible reasoning summaries, human review points, state deltas, uncertainty, and failure debt. It does not expose hidden chain-of-thought.
         </p>
         <div className="replay-list">
           {events.length === 0 ? (
@@ -35,10 +34,10 @@ export function ReplayPanel({ events, onClose }: ReplayPanelProps) {
                   <b>{event.title}</b>
                 </div>
                 <p>
-                  <strong>Decision:</strong> {event.decision}
+                  <strong>Visible summary:</strong> {event.decision}
                 </p>
                 <p>
-                  <strong>Result:</strong> {event.result}
+                  <strong>Outcome / audit:</strong> {event.result}
                 </p>
                 <div className="delta-list">
                   {Object.entries(event.stateDelta).map(([key, value]) => (

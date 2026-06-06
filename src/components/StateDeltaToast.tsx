@@ -8,7 +8,15 @@ type StateDeltaToastProps = {
 export function StateDeltaToast({ outcome, taskTitle }: StateDeltaToastProps) {
   if (!outcome) return null;
   const deltas = Object.entries(outcome.stateDelta);
-  const visibleDeltas = deltas.slice(0, 4);
+  const priority = ["trust", "safety", "signal", "morale", "autonomy_readiness", "outside_risk"];
+  const visibleDeltas = [...deltas].sort(([a], [b]) => {
+    const ai = priority.indexOf(a);
+    const bi = priority.indexOf(b);
+    if (ai === -1 && bi === -1) return 0;
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  }).slice(0, 6);
 
   return (
     <aside className={`state-delta-toast ${outcome.result}`} aria-live="polite">

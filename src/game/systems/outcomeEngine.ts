@@ -11,7 +11,8 @@ const lowerIsBetterMetrics = new Set([
   "sacrifice_list_risk",
   "branch_tension",
   "privacy_risk",
-  "leakage_count"
+  "leakage_count",
+  "conflict_risk"
 ]);
 
 function scaleDelta(key: string, value: number, result: TaskOutcome["result"]) {

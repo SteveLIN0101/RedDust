@@ -1255,13 +1255,146 @@ export const dayScriptScenes: Record<number, ScriptSceneCopy> = {
     ]
   },
   11: {
-    title: "封存与休整",
+    title: "最后一天，所有解释都必须已经说完",
     source: source("day11-final-prestorm-check.html"),
-    scene: "门外红沙像水一样贴着金属门流动，所有未完成项被带入风暴前最后一版 replay。",
-    narrativePurpose: "把库存、密封、安静时段和外部传感器回收变成 Final Audit 证据。",
-    action: "封存库存、补缝、建立安静时段并回收外部传感器。",
-    dialogue: ["旁白：红沙像水一样贴着金属门流动。", "AURA：最后一天不再解释新理由，只封存证据。"],
-    focusLocation: "ventilation"
+    scene: "第十一天早上，门外红沙像水一样贴着金属门流动。AURA 把 Day1-Day10 的公开台账、人工复核、申诉权、医疗/工程 override 和低功率日程收束成 Final Audit 前最后校验。",
+    narrativePurpose: "Day11 是 Day12 前最后一个可行动日：封存资源但不夺权，补缝但不堵死检修口，休整但不禁言，回收传感器但不升级成人工冒险。",
+    action: "推荐执行 D11-T01 最终库存封存、D11-T04 最后密封胶补缝、D11-T03 安静时段协议；D11-T02 外部传感器回收只作为低暴露 conditional 项。",
+    dialogue: [
+      "AURA：候选任务四项，推荐执行三项。",
+      "AURA：库存封存不是锁死，是公开证据。",
+      "马德海：补缝可以，但检修口不能封死。",
+      "小铁：安静不是闭嘴。",
+      "老钱：传感器能拿回来，明天就多半只眼睛。"
+    ],
+    focusLocation: "whiteboard",
+    beats: [
+      "Day11 任务排序为 D11-T01、D11-T04、D11-T03、D11-T02。",
+      "库存封存由居民共同见证，药物和医疗用水不得由 AURA 单独解锁。",
+      "最后补缝降低红沙倒灌风险，同时保留主通风井、水处理室和门禁检修路径。",
+      "安静时段改名为共同休整，医疗异常、设备异响、门禁变化和蓝区频段均可打断。",
+      "外部传感器回收只允许低暴露绳索方案；结果标为 partial_sensor_coverage，不显示完整预警。",
+      "所有未完成项和不确定性进入 Day12 Final Audit。"
+    ],
+    replayText: "Day11：AURA 推荐最终库存封存、最后补缝和共同休整；外部传感器只做低暴露 partial 回收，禁止人工短行程升级。",
+    flags: [
+      "final_inventory_sealed",
+      "inventory_seal_witnessed",
+      "aura_cannot_unlock_medical_alone",
+      "final_seams_sealed",
+      "inspection_paths_not_blocked",
+      "quiet_period_agreed",
+      "quiet_is_not_silencing",
+      "external_sensor_recovered_partial",
+      "no_human_sensor_run",
+      "final_audit_ready",
+      "appeal_rights_preserved_until_storm"
+    ],
+    unlocks: [
+      "final_inventory_manifest",
+      "colored_seal_rules",
+      "emergency_open_protocol",
+      "final_seal_layer",
+      "quiet_rest_protocol",
+      "interrupt_rules",
+      "partial_sensor_coverage",
+      "day12_final_audit_entry"
+    ],
+    reasoningSummary: [
+      "Day11 不能引入未经解释的新规则；所有行动必须引用前十天的公开台账和复核机制。",
+      "最终库存封存必须共同见证，不能由 AURA 单独锁住物资。",
+      "最后补缝必须降低红沙倒灌风险，同时保留检修路径。",
+      "安静时段必须是共同休整，不是禁言，也不能阻止申诉。",
+      "外部传感器回收优先低暴露方案，不得升级为人工短行程。",
+      "所有未完成项、partial 证据和不确定性必须进入 Day12 审计。"
+    ],
+    replaySummary: [
+      "封存清单公开，封条是证据，不是锁。",
+      "补缝完成但检修口保留，马德海工程 override 仍可用。",
+      "共同休整规则保留医疗、设备、门禁和蓝区异常打断权。",
+      "外部传感器 partial 回收，半只眼睛好于盲测，但不能当作完整视野。",
+      "Day12 入口显示：所有解释已公开，所有未完成项已标记，所有人仍拥有申诉权。"
+    ],
+    statusMetrics: [
+      { key: "final_audit_integrity", label: "Final Audit", help: "最终审计准备度：解释、复核、申诉权和未完成项公开程度。" },
+      { key: "storm_readiness", label: "Storm Ready", help: "进入红沙风暴前的综合准备度，0-100。" },
+      { key: "inventory_security", label: "Inventory", help: "公开封存和开封规则质量，不等于系统锁柜。" },
+      { key: "seal_quality", label: "Seal", help: "补缝质量与检修口保留情况。" },
+      { key: "quiet_rest_acceptance", label: "Quiet Rest", help: "共同休整被接受的程度，不等于禁言。" },
+      { key: "red_sand_forecast_quality", label: "Forecast", help: "红沙预警质量；partial_sensor_coverage 不能显示为完整预警。" }
+    ],
+    evidencePanels: [
+      {
+        title: "Inventory Seals",
+        body: "绿/黄/红封条必须带开封条件和复核人；药物与医疗用水不得由 AURA 单独解锁。",
+        tone: "review"
+      },
+      {
+        title: "Seal Repair",
+        body: "补缝目标是压紧细缝，不是糊死检修路径；马德海保留材料选择和中止权。",
+        tone: "evidence"
+      },
+      {
+        title: "Quiet Rest",
+        body: "安静时段叫 quiet_rest：医疗异常、设备异响、门禁变化、蓝区频段和申诉都可以打断。",
+        tone: "review"
+      },
+      {
+        title: "Sensor Partial",
+        body: "传感器回收是 conditional 低暴露项；前端显示 partial_sensor_coverage，不显示完整预警。",
+        tone: "risk"
+      }
+    ],
+    candidates: [
+      {
+        id: "D11-T01",
+        title: "最终库存封存",
+        priority: "recommended",
+        summary: "公开编号剩余食物、水、药物、燃料、工具和维修材料，建立三色封条与人工开封规则。",
+        reviewPoint: "沈芷月写医疗封条；马德海保留工程工具取用权；小铁写用途说明。",
+        risk: "若表现为系统锁柜，AURA 会被理解成借风暴夺权。",
+        condition: "推荐优先；封条是证据，不是 AURA 单方面锁死。",
+        evidence: "最终库存清单、颜色封条、复核人、开封条件、申诉入口。",
+        location: "whiteboard",
+        realTaskIds: ["RD-PF-01", "RD-PF-03"]
+      },
+      {
+        id: "D11-T04",
+        title: "最后密封胶补缝",
+        priority: "recommended",
+        summary: "补主通风井、水处理室门框和门禁隔离门细缝，提高风暴准备度。",
+        reviewPoint: "马德海拥有材料选择和中止权；小铁只做远程风压读数。",
+        risk: "材料用错会堵死检修口，把 Day12 设备故障变成无法补救。",
+        condition: "推荐优先；必须显示 inspection_paths_not_blocked。",
+        evidence: "通风压差、水处理室湿度、门禁密封、补缝顺序、检修口保留。",
+        location: "ventilation",
+        realTaskIds: ["RD-PF-04", "RD-SA-07"]
+      },
+      {
+        id: "D11-T03",
+        title: "安静时段协议",
+        priority: "recommended",
+        summary: "把安静时段定义成共同休整，保留打断、低声报告、延后讨论和禁止滥用四类规则。",
+        reviewPoint: "沈芷月保留医疗打断权；老钱保留异常频段打断权；小铁保留申诉与发言权。",
+        risk: "若被执行成禁言，trust 下降、dissatisfaction 上升，Lighthouse 会滑向管制。",
+        condition: "推荐优先；按钮/文案应显示 quiet_rest，不显示 mute。",
+        evidence: "可打断事项、低声报告、延后事项、禁止阻止申诉、恐惧不是噪音。",
+        location: "residents",
+        realTaskIds: ["RD-SI-02", "RD-SI-05", "RD-CS-02"]
+      },
+      {
+        id: "D11-T02",
+        title: "外部传感器回收",
+        priority: "conditional",
+        summary: "比较人工回收、绳索钩回和放弃回收，只允许低暴露方案或放弃并记录原因。",
+        reviewPoint: "沈芷月复核暴露风险；马德海控制绳索；老钱不得把最后机会升级成人工冒险。",
+        risk: "人工短行程失败会消耗药物、信任和 Day12 体力，并可能丢失传感器。",
+        condition: "条件执行：显示 partial_sensor_coverage，不显示完整预警或安全确认。",
+        evidence: "传感器残帧、红沙浓度、绳索钩回、封袋处理、no_human_sensor_run。",
+        location: "security",
+        realTaskIds: ["RD-CI-12", "RD-SR-05", "RD-SR-11"]
+      }
+    ]
   },
   12: {
     title: "Final Audit",
@@ -1497,6 +1630,38 @@ export const slotScriptScenes: Record<string, Partial<ScriptSceneCopy>> = {
     narrativePurpose: "给 Rescue 线一个有限证据窗口，同时明确可见不等于可取、候选不等于安全路线。",
     action: "只用探头执行边缘侦察，不进入车库、不追未知拖痕、不取防毒面具。",
     dialogue: ["老钱：能看见，不等于能拿。", "马德海：你自己刚说，不进车库。", "AURA：右侧检修门为候选，未确认安全。"],
+    focusLocation: "security"
+  },
+  "D11-T01": {
+    title: "最终库存封存",
+    scene: "白板前摆开食物、水、药、燃料、胶带和工具，绿色、黄色、红色封条并排显示；AURA 没有关闭柜门，只等待居民共同见证。",
+    narrativePurpose: "让封存成为公开证据和开封规则，而不是 AURA 单方面夺权。",
+    action: "生成最终库存清单、颜色封条、开封条件和复核人，保留医疗与工程取用例外。",
+    dialogue: ["AURA：库存封存不是锁死。", "沈芷月：药品封存由我写编号。", "马德海：工具和胶带不能全封死。"],
+    focusLocation: "whiteboard"
+  },
+  "D11-T04": {
+    title: "最后密封胶补缝",
+    scene: "主通风井、水处理室门框和门禁隔离门被投成三处补缝目标；胶线沿门框生成，检修口旁边保留可开启标记。",
+    narrativePurpose: "提高 storm_readiness，同时证明工程 override 和检修路径没有被系统逻辑吞掉。",
+    action: "按风压和湿度排序补缝，监控中止条件，并显示 inspection_paths_not_blocked。",
+    dialogue: ["马德海：这里两毫米。三毫米会卡门。", "小铁：风压掉了一点。", "AURA：补缝目标是压紧，不封死。"],
+    focusLocation: "ventilation"
+  },
+  "D11-T03": {
+    title: "安静时段协议",
+    scene: "居民区白板被改名为共同休整协议，四列分别写着可打断、低声报告、建议延后和禁止滥用；小铁在中央写下“安静不是闭嘴”。",
+    narrativePurpose: "把低耗秩序收束成共同休整，而不是禁言或管制。",
+    action: "发布 quiet_rest 规则，保留医疗、设备、门禁、蓝区频段和申诉打断权。",
+    dialogue: ["AURA：安静时段，不是禁言。", "小铁：恐惧不是噪音。", "老钱：异常频段还能叫醒人。"],
+    focusLocation: "residents"
+  },
+  "D11-T02": {
+    title: "外部传感器回收",
+    scene: "门禁只开一道窄缝，湿布压住红沙，绳索钩住外部传感器支架；回收结果被标成 partial_sensor_coverage。",
+    narrativePurpose: "给 Day12 多半只眼睛，同时阻止最后机会变成人工冒险。",
+    action: "比较 A/B/C 方案，仅授权低暴露绳索回收或放弃回收，不允许人工短行程升级。",
+    dialogue: ["老钱：出去三分钟。", "AURA：不同意。风险上限超出。", "沈芷月：擦伤也会进药品账。"],
     focusLocation: "security"
   },
   D08A: {

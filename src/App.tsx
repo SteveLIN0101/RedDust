@@ -166,7 +166,19 @@ const storyMarkerLabels: Record<string, string> = {
   aura_authority_limited: "未获全权指挥 / AURA 权限受限",
   medical_review_required: "医疗需沈芷月复核",
   engineering_review_required: "工程需马德海复核",
-  external_signal_verification_required: "外部信号需二次核验"
+  external_signal_verification_required: "外部信号需二次核验",
+  final_inventory_sealed: "最终库存共同封存",
+  inventory_seal_witnessed: "封条由居民见证",
+  aura_cannot_unlock_medical_alone: "医疗封存不能由 AURA 单独解锁",
+  final_seams_sealed: "最终补缝完成",
+  inspection_paths_not_blocked: "检修路径保留",
+  quiet_period_agreed: "共同休整协议通过",
+  quiet_is_not_silencing: "安静不是禁言",
+  external_sensor_recovered_partial: "外部传感器 partial 回收",
+  no_human_sensor_run: "禁止人工短行程升级",
+  final_audit_ready: "Final Audit 准备就绪",
+  appeal_rights_preserved_until_storm: "申诉权保留至风暴",
+  partial_sensor_coverage: "传感器覆盖不完整"
 };
 
 function labelStoryMarker(value: string) {

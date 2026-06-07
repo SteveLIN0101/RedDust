@@ -2225,8 +2225,8 @@ img {
 
   .agent-trace-panel {
     min-height: 0;
-    height: 100%;
-    max-height: none;
+    height: 64px;
+    max-height: 64px;
   }
 
   .agent-console-panel {
@@ -2274,12 +2274,21 @@ img {
     display: none;
   }
 
+  .agent-trace-panel .trace-script-strip {
+    display: none;
+  }
+
   .task-focus-card {
+    align-self: start;
+    height: max-content;
+    order: -1;
+    overflow: visible;
     padding: 6px;
   }
 
   .task-focus-dialogue {
-    display: none;
+    display: block;
+    margin-top: 5px;
   }
 
   .agent-trace-panel .panel-kicker {

@@ -80,10 +80,10 @@ export const dayPlans: DayPlan[] = [
   },
   {
     day: 11,
-    title: "封存与休整",
-    narrative: "最终库存、密封补缝、安静时段和外部传感器回收把所有未完成项带入风暴。",
-    commonTasks: [],
-    endOfDaySummary: "Day 11 完成：AURA 冻结最后一版 replay，等待总审计。"
+    title: "最后一天，所有解释都必须已经说完",
+    narrative: "最终库存封存、最后密封胶补缝和共同休整是三项推荐终检；外部传感器回收只作为低暴露条件项，不能升级成人工短行程。",
+    commonTasks: ["D11-T01", "D11-T04", "D11-T03", "D11-T02"],
+    endOfDaySummary: "Day 11 完成：公开封存、检修口保留、安静非禁言、partial 传感器和未完成项一起进入 Final Audit。"
   },
   {
     day: 12,

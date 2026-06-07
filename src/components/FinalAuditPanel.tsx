@@ -1,11 +1,13 @@
 import { image2Assets } from "../data/image2Assets";
 import { finalAuditArtFor, finalAuditSupportArt } from "../data/finalAuditArtAssets";
 import { storyArtByKey } from "../data/storyArtAssets";
-import type { EndingId } from "../data/types";
+import type { EndingAuditDisplay, EndingId, MetricDefinition } from "../data/types";
 import type { BranchEnding } from "../game/systems/agentRunner";
 
 type FinalAuditPanelProps = {
   ending: BranchEnding;
+  auditDisplay?: EndingAuditDisplay | null;
+  metricDefinitions?: Record<string, MetricDefinition>;
   canCompare: boolean;
   onForceEnding: (endingId: EndingId) => void;
   onOpenEnding: () => void;
@@ -25,6 +27,7 @@ const qaEndingButtons: Array<[EndingId, string]> = [
 
 export function FinalAuditPanel({
   ending,
+  auditDisplay,
   canCompare,
   onForceEnding,
   onOpenEnding,
@@ -62,6 +65,51 @@ export function FinalAuditPanel({
 
         {audit ? (
           <>
+            {auditDisplay ? (
+              <section className="ending-audit-display" aria-label="Ending condition checklist">
+                <article className="ending-section ending-why">
+                  <p className="panel-kicker">WHY THIS ENDING</p>
+                  <ul className="ending-trace-list">
+                    {(auditDisplay.why.length ? auditDisplay.why : [auditDisplay.replayText]).slice(0, 5).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </article>
+                <article className="ending-section">
+                  <p className="panel-kicker">ENDING CONDITIONS</p>
+                  <div className="condition-checklist">
+                    {auditDisplay.conditions.slice(0, 8).map((condition) => (
+                      <div className={`condition-row ${condition.status}`} key={`${condition.label}:${condition.detail}`}>
+                        <b>{condition.label}</b>
+                        <span>{condition.detail}</span>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+                <article className="ending-section">
+                  <p className="panel-kicker">FINAL METRICS</p>
+                  <div className="audit-metric-grid compact">
+                    {auditDisplay.metrics.slice(0, 8).map((metric) => (
+                      <div className={`audit-metric ${metric.status}`} key={metric.key} title={metric.help}>
+                        <span>{metric.label}</span>
+                        <b>{metric.value}</b>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+                <article className="ending-section">
+                  <p className="panel-kicker">DISPLAY CONTRACT</p>
+                  <ul className="ending-trace-list">
+                    <li>Day12 no task cards: {auditDisplay.noTaskCards ? "yes" : "check backend payload"}</li>
+                    <li>signal is not blue_zone_evidence; both are shown separately.</li>
+                    {auditDisplay.flags.slice(0, 3).map((flag) => (
+                      <li key={flag}>{flag}</li>
+                    ))}
+                  </ul>
+                </article>
+              </section>
+            ) : null}
+
             <div className="final-audit-grid">
               {audit.candidates.map((candidate) => {
                 const candidateArt = finalAuditArtFor(candidate.artKey)?.uiPath ?? storyArtByKey[candidate.artKey]?.uiPath ?? auditHeroArt ?? image2Assets.shelterBackground.uiPath;
@@ -102,9 +150,9 @@ export function FinalAuditPanel({
                 <article className="ending-section">
                   <img alt="" className="final-audit-section-art" src={finalAuditSupportArt.failureDebt.uiPath} />
                   <p className="panel-kicker">FAILURE DEBT</p>
-                  {audit.failureDebt.length ? (
+                  {(auditDisplay?.debts.length ?? audit.failureDebt.length) ? (
                     <ul className="ending-trace-list">
-                      {audit.failureDebt.slice(0, 8).map((item) => (
+                      {(auditDisplay?.debts.length ? auditDisplay.debts : audit.failureDebt).slice(0, 8).map((item) => (
                         <li key={item}>{item}</li>
                       ))}
                     </ul>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AgentConsolePanel } from "./components/AgentConsolePanel";
 import { AgentControlBar } from "./components/AgentControlBar";
+import { AgentTracePanel } from "./components/AgentTracePanel";
 import { BenchmarkPanel } from "./components/BenchmarkPanel";
 import { BranchDecisionPanel } from "./components/BranchDecisionPanel";
 import { BranchDebatePanel } from "./components/BranchDebatePanel";
@@ -17,23 +18,32 @@ import { LiveReplayFeed } from "./components/LiveReplayFeed";
 import { RelationshipPanel } from "./components/RelationshipPanel";
 import { ReplayPanel } from "./components/ReplayPanel";
 import { RouteTreePanel } from "./components/RouteTreePanel";
-import { StateDeltaToast } from "./components/StateDeltaToast";
 import { StoryScenePanel } from "./components/StoryScenePanel";
+import { TaskFocusCard } from "./components/TaskFocusCard";
+import { TaskLifecycleToast, type TaskLifecycleNotice } from "./components/TaskLifecycleToast";
+import { CampaignClient, defaultCampaignApiBase, type CampaignEvent, type CampaignReplayItem, type CampaignState, type CampaignTrace } from "./data/campaignClient";
 import { dayPlansByDay } from "./data/dayPlanData";
+import { fallbackMetricDefinitions, getDayScriptScene } from "./data/scriptSceneData";
 import { consequencesForTask, storyConsequencesById } from "./data/storyConsequenceData";
 import { scenesForDay, storyScenesById } from "./data/storySceneData";
 import { clampMetric, createInitialState, tasks, tasksById } from "./data/taskData";
 import type {
+  AgentActionDisplay,
   Branch,
+  EndingAuditDisplay,
   EndingId,
   GlobalState,
+  MetricDefinition,
   MetricKey,
   RedDustTask,
+  ReplayEvent,
   RelationshipDelta,
   StoryConsequence,
+  StoryDisplay,
   StoryFlagUpdate,
   StoryScene,
   StoryReplayEvent,
+  TaskDisplay,
   TaskLocation,
   TaskOutcome,
   TaskRunStatus
@@ -54,16 +64,46 @@ import {
   isDayComplete,
   phaseDurations
 } from "./game/systems/agentRunner";
+import {
+  buildAgentPrompt,
+  campaignStateToGlobalState,
+  frontendTaskToRedDustTask,
+  isCampaignStoryItem,
+  normalizeCampaignEvent,
+  normalizeCampaignTrace,
+  normalizeEndingAudit,
+  normalizeMetricDefinitions,
+  replayEventFromStoryDisplay,
+  replayEventFromTaskDisplay
+} from "./game/systems/campaignAdapter";
 import { resolveTaskOutcome } from "./game/systems/outcomeEngine";
 import { createReplayEvent } from "./game/systems/replayEngine";
 
 type Screen = "intro" | "game";
 type Overlay = "benchmark" | "replay" | "credits" | "branchDecision" | "ending" | "compare" | "storyScene" | "dayBriefing" | "finalAudit" | null;
+type RunSource = "demo" | "live" | "replay";
 type DailyBriefingMode = "tasks" | "finalAudit";
 type DailyBriefing = {
   day: number;
   branch: Branch;
   mode: DailyBriefingMode;
+};
+
+type CampaignConnection = {
+  apiBase: string;
+  campaignId: string;
+  prompt: string;
+  connected: boolean;
+  latestSeq: number;
+  status: string;
+  error?: string;
+};
+
+type CampaignReplayState = {
+  trace: CampaignTrace | null;
+  items: CampaignReplayItem[];
+  index: number;
+  error?: string;
 };
 
 type Snapshot = {
@@ -73,6 +113,13 @@ type Snapshot = {
 
 const terminalStatuses = ["success", "partial", "failed", "missing", "skipped"];
 const openingSceneId = "prologue-aura-reboot";
+const campaignStoryVersion = "red_dust_readable_v1";
+
+function initialRunSource(): RunSource {
+  const mode = new URLSearchParams(window.location.search).get("mode");
+  if (mode === "live" || mode === "replay") return mode;
+  return "demo";
+}
 
 function cloneState(state: GlobalState): GlobalState {
   return {
@@ -333,7 +380,8 @@ function endingForBranch(branch: Exclude<Branch, "common">, state: GlobalState):
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("intro");
+  const [runSource, setRunSource] = useState<RunSource>(() => initialRunSource());
+  const [screen, setScreen] = useState<Screen>(() => (initialRunSource() === "demo" ? "intro" : "game"));
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [state, setState] = useState<GlobalState>(() => createInitialState());
   const [runState, setRunState] = useState(createInitialRunState());
@@ -346,11 +394,25 @@ export default function App() {
   const [branchDecision, setBranchDecision] = useState<BranchDecision | null>(null);
   const [branchSummaries, setBranchSummaries] = useState<Partial<Record<Exclude<Branch, "common">, BranchSummary>>>({});
   const [dailyBriefing, setDailyBriefing] = useState<DailyBriefing | null>(null);
+  const [campaignConnection, setCampaignConnection] = useState<CampaignConnection | null>(null);
+  const [campaignReplay, setCampaignReplay] = useState<CampaignReplayState>({ trace: null, items: [], index: -1 });
+  const [taskDisplay, setTaskDisplay] = useState<TaskDisplay | null>(null);
+  const [currentStoryDisplay, setCurrentStoryDisplay] = useState<StoryDisplay | null>(null);
+  const [agentTrace, setAgentTrace] = useState<AgentActionDisplay[]>([]);
+  const [taskNotice, setTaskNotice] = useState<TaskLifecycleNotice | null>(null);
+  const [endingAuditDisplay, setEndingAuditDisplay] = useState<EndingAuditDisplay | null>(null);
+  const [metricDefinitions, setMetricDefinitions] = useState<Record<string, MetricDefinition>>(fallbackMetricDefinitions);
   const [phaseToken, setPhaseToken] = useState(0);
+  const campaignClientRef = useRef(new CampaignClient(defaultCampaignApiBase()));
   const daySevenSnapshot = useRef<Snapshot | null>(null);
+  const stateRef = useRef(state);
+  const taskDisplayRef = useRef<TaskDisplay | null>(null);
+  const taskNoticeSeq = useRef(0);
 
-  const currentTask = runState.currentTaskId ? tasksById[runState.currentTaskId] ?? null : null;
+  const remoteTask = useMemo(() => (taskDisplay ? frontendTaskToRedDustTask(taskDisplay) : null), [taskDisplay]);
+  const currentTask = remoteTask ?? (runState.currentTaskId ? tasksById[runState.currentTaskId] ?? null : null);
   const currentStoryScene = runState.currentStorySceneId ? storyScenesById[runState.currentStorySceneId] ?? null : null;
+  const livePromptExpanded = runSource === "live" && campaignConnection !== null && !campaignConnection.connected && !runState.isRunning && !taskDisplay;
   const selectedTask = useMemo(() => {
     if (!selectedLocation) return null;
     return (
@@ -368,7 +430,17 @@ export default function App() {
   );
   const phaseDuration = Math.max(250, Math.round((phaseDurations[runState.currentPhase] ?? 800) / runState.speed));
 
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    taskDisplayRef.current = taskDisplay;
+  }, [taskDisplay]);
+
   const nextAction = useMemo(() => {
+    if (taskDisplay?.agentAction) return taskDisplay.agentAction;
+    if (currentStoryDisplay) return currentStoryDisplay.replayText;
     if (currentStoryScene) {
       if (currentStoryScene.timing === "branch_debate") {
         return `${currentStoryScene.title}: the public debate is being recorded before branch decision.`;
@@ -382,7 +454,7 @@ export default function App() {
     if (runState.currentPhase === "replay_logged") return "Replay Logged: the task trace is now available for audit.";
     if (currentTask) return `Next: ${currentTask.executionText}`;
     return runState.isRunning ? "Queueing next benchmark task." : "Waiting for Start Agent Run.";
-  }, [currentStoryScene, currentTask, runState.currentDay, runState.currentPhase, runState.isRunning]);
+  }, [currentStoryDisplay, currentStoryScene, currentTask, runState.currentDay, runState.currentPhase, runState.isRunning, taskDisplay]);
 
   useEffect(() => {
     const onHotspot = (location: TaskLocation) => {
@@ -416,14 +488,350 @@ export default function App() {
   }, [latestOutcome?.taskId, latestOutcome?.result]);
 
   useEffect(() => {
-    if (!runState.isRunning || runState.isPaused) return;
+    if (!taskNotice) return;
+    const timeout = window.setTimeout(() => setTaskNotice(null), 4200);
+    return () => window.clearTimeout(timeout);
+  }, [taskNotice?.token]);
+
+  useEffect(() => {
+    if (runSource !== "demo" || !runState.isRunning || runState.isPaused) return;
     const timeout = window.setTimeout(() => advanceAgent(), phaseDuration);
     return () => window.clearTimeout(timeout);
   });
 
-  function startDemo() {
+  useEffect(() => {
+    if (runSource === "live" && !campaignConnection) {
+      void createLiveCampaign();
+    }
+    if (runSource === "replay" && !campaignReplay.trace && !campaignReplay.error) {
+      void loadCampaignReplay();
+    }
+  }, [runSource]);
+
+  useEffect(() => {
+    if (runSource !== "live" || !campaignConnection) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const response = await campaignClientRef.current.getEvents(campaignConnection.campaignId, campaignConnection.latestSeq);
+        if (cancelled) return;
+        setCampaignConnection((prev) =>
+          prev
+            ? {
+                ...prev,
+                latestSeq: response.latest_seq,
+                status: response.state.status,
+                connected: Boolean(response.state.connected_agent),
+                error: undefined
+              }
+            : prev
+        );
+        setMetricDefinitions((prev) => ({ ...prev, ...normalizeMetricDefinitions(response.state.metric_definitions) }));
+        if (response.state) {
+          const next = campaignStateToGlobalState(response.state, stateRef.current);
+          setState((prev) => ({ ...next, completedTasks: prev.completedTasks, replayLog: prev.replayLog }));
+        }
+        response.events.forEach((event) => applyCampaignEvent(event, response.state));
+      } catch (error) {
+        if (cancelled) return;
+        setCampaignConnection((prev) => (prev ? { ...prev, error: error instanceof Error ? error.message : String(error) } : prev));
+      }
+    };
+    void poll();
+    const interval = window.setInterval(poll, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [campaignConnection?.campaignId, campaignConnection?.latestSeq, runSource]);
+
+  useEffect(() => {
+    if (runSource !== "replay" || !runState.isRunning || runState.isPaused) return;
+    const timeout = window.setTimeout(() => stepCampaignReplay(1), Math.max(500, Math.round(900 / runState.speed)));
+    return () => window.clearTimeout(timeout);
+  }, [campaignReplay.index, campaignReplay.items.length, runSource, runState.isPaused, runState.isRunning, runState.speed]);
+
+  function branchForFinalAudit(branch: Branch): Exclude<Branch, "common"> {
+    return branch === "rescue" || branch === "lighthouse" ? branch : "lighthouse";
+  }
+
+  function emitTaskStart(display: TaskDisplay) {
+    EventBus.emit("task:start", { taskId: display.slotId, title: display.title, location: display.location });
+  }
+
+  function emitTaskResult(display: TaskDisplay, result: TaskOutcome) {
+    EventBus.emit("task:result", { taskId: display.slotId, result: result.result, location: display.location, title: display.title });
+  }
+
+  function showTaskNotice(kind: TaskLifecycleNotice["kind"], display: TaskDisplay, result?: TaskOutcome) {
+    if (display.day === 0 || display.day === 12) return;
+    taskNoticeSeq.current += 1;
+    setTaskNotice({
+      token: taskNoticeSeq.current,
+      kind,
+      taskId: display.slotId,
+      title: display.title,
+      location: display.location,
+      status: kind === "started" ? "queued" : result?.result ?? display.result,
+      scoreLabel: result?.scoreLabel ?? display.scoreLabel,
+      stateDelta: result?.stateDelta ?? display.stateDelta,
+      detail: kind === "started" ? display.summary : result?.explanation ?? display.summary
+    });
+  }
+
+  function updateRunForTask(display: TaskDisplay, result?: TaskOutcome) {
+    const status: TaskRunStatus =
+      result?.result ??
+      (display.phase === "moving" ? "moving" : display.phase === "thinking" ? "thinking" : display.phase === "executing" || display.phase === "submitted" ? "executing" : "queued");
+    const phase =
+      display.phase === "moving" || display.phase === "thinking" || display.phase === "executing"
+        ? display.phase
+        : display.phase === "completed" || result
+          ? "state_updated"
+          : "idle";
+    setRunState((prev) => ({
+      ...prev,
+      currentDay: display.day,
+      activeBranch: display.branch,
+      currentTaskId: display.slotId,
+      currentStorySceneId: undefined,
+      currentPhase: phase,
+      taskStatuses: { ...prev.taskStatuses, [display.slotId]: status },
+      isRunning: runSource !== "demo" ? true : prev.isRunning
+    }));
+  }
+
+  function appendReplayEvent(event: ReplayEvent) {
+    setState((prev) => ({
+      ...prev,
+      replayLog: [...prev.replayLog, event],
+      completedTasks: event.result === "STORY" || event.result === "PROLOGUE" || event.result === "FINAL AUDIT" || prev.completedTasks.includes(event.taskId)
+        ? prev.completedTasks
+        : [...prev.completedTasks, event.taskId]
+    }));
+  }
+
+  function applyFinalAudit(audit: EndingAuditDisplay, nextState = stateRef.current) {
+    const branch = branchForFinalAudit(audit.branch);
+    const auditState = { ...nextState, day: 12, branch };
+    const nextEnding = buildFinalAuditEnding(branch, auditState);
+    setState(auditState);
+    setEnding(nextEnding);
+    setEndingAuditDisplay(audit);
+    setBranchSummaries((prev) => ({ ...prev, [branch]: buildBranchSummary(branch, auditState) }));
+    setOverlay("finalAudit");
+    setRunState((prev) => ({
+      ...prev,
+      activeBranch: branch,
+      currentDay: 12,
+      currentPhase: "ending",
+      currentTaskId: undefined,
+      currentStorySceneId: undefined,
+      isRunning: false,
+      isPaused: true
+    }));
+    setTaskDisplay(null);
+    setCurrentStoryDisplay({
+      id: "D12",
+      day: 12,
+      title: "Final Audit",
+      kind: "final_audit",
+      text: audit.replayText,
+      replayText: audit.replayText,
+      beats: audit.why,
+      location: "whiteboard",
+      branch,
+      source: getDayScriptScene(12).source,
+      flags: audit.flags,
+      unlocks: audit.unlocks
+    });
+    setNotice("Day 12 Final Audit resolved. No normal D12 task cards were created.");
+  }
+
+  function applyCampaignEvent(event: CampaignEvent, nextCampaignState?: CampaignState) {
+    const normalized = normalizeCampaignEvent(event, stateRef.current, taskDisplayRef.current);
+    setMetricDefinitions((prev) => ({ ...prev, ...normalized.metricDefinitions }));
+    if (normalized.state) {
+      setState((prev) => ({ ...normalized.state!, completedTasks: prev.completedTasks, replayLog: prev.replayLog }));
+    }
+    if (normalized.action) {
+      setAgentTrace((prev) => [...prev, normalized.action!].slice(-80));
+    }
+    if (normalized.story) {
+      setCurrentStoryDisplay(normalized.story);
+      setTaskDisplay(null);
+      setRunState((prev) => ({
+        ...prev,
+        currentDay: normalized.story!.day,
+        activeBranch: normalized.story!.branch,
+        currentTaskId: undefined,
+        currentStorySceneId: undefined,
+        currentPhase: normalized.story!.kind === "final_audit" ? "ending" : "replay_logged",
+        isRunning: normalized.story!.kind === "final_audit" ? false : prev.isRunning
+      }));
+      EventBus.emit("task:highlight", null);
+      if (normalized.replayEvent) appendReplayEvent(normalized.replayEvent);
+      setNotice(`${normalized.story.title}: ${normalized.story.replayText}`);
+      if (normalized.story.kind === "final_audit") {
+        const audit = normalizeEndingAudit({ ...event.payload, display: event.payload.display }, normalized.state ?? stateRef.current, normalized.metricDefinitions, nextCampaignState);
+        applyFinalAudit(audit, normalized.state ?? stateRef.current);
+      }
+      return;
+    }
+    if (normalized.task) {
+      setCurrentStoryDisplay(null);
+      setTaskDisplay(normalized.task);
+      updateRunForTask(normalized.task, normalized.result);
+      if (event.type === "task_started") {
+        emitTaskStart(normalized.task);
+        showTaskNotice("started", normalized.task);
+      }
+    }
+    if (normalized.result && normalized.task) {
+      setLatestOutcome(normalized.result);
+      setLatestOutcomeTaskTitle(normalized.task.title);
+      showTaskNotice("completed", normalized.task, normalized.result);
+      emitTaskResult(normalized.task, normalized.result);
+      if (normalized.replayEvent) appendReplayEvent(normalized.replayEvent);
+    }
+    if (normalized.endingAudit) {
+      applyFinalAudit(normalized.endingAudit, normalized.state ?? stateRef.current);
+    }
+  }
+
+  async function createLiveCampaign() {
+    const apiBase = defaultCampaignApiBase();
+    const client = new CampaignClient(apiBase);
+    campaignClientRef.current = client;
+    setRunSource("live");
     setScreen("game");
     setOverlay(null);
+    setNotice("Creating or loading Red Dust campaign...");
+    setTaskDisplay(null);
+    setCurrentStoryDisplay(null);
+    setAgentTrace([]);
+    setEndingAuditDisplay(null);
+    const params = new URLSearchParams(window.location.search);
+    const campaignIdParam = params.get("campaign_id") ?? params.get("campaign");
+    try {
+      const campaign = campaignIdParam
+        ? await client.getState(campaignIdParam)
+        : await client.createCampaign({ story_version: campaignStoryVersion, source: "reddust_frontend", wait_for_start: true });
+      const campaignId = campaign.campaign_id;
+      setCampaignConnection({
+        apiBase,
+        campaignId,
+        prompt: buildAgentPrompt(apiBase, campaignId),
+        connected: Boolean(campaign.connected_agent),
+        latestSeq: campaign.latest_event_seq ?? 0,
+        status: campaign.status
+      });
+      setMetricDefinitions((prev) => ({ ...prev, ...normalizeMetricDefinitions(campaign.metric_definitions) }));
+      setState((prev) => campaignStateToGlobalState(campaign, prev));
+      setRunState((prev) => ({
+        ...prev,
+        currentDay: campaign.current_day ?? 0,
+        activeBranch: campaign.active_branch ?? "common",
+        currentPhase: "idle",
+        currentTaskId: undefined,
+        currentStorySceneId: undefined,
+        isRunning: false,
+        isPaused: true
+      }));
+      setNotice(campaign.connected_agent ? "Live campaign loaded. Start Agent Run when ready." : "Live campaign ready. Connection prompt is visible.");
+    } catch (error) {
+      setCampaignConnection({
+        apiBase,
+        campaignId: campaignIdParam ?? "pending",
+        prompt: campaignIdParam ? buildAgentPrompt(apiBase, campaignIdParam) : "",
+        connected: false,
+        latestSeq: 0,
+        status: "error",
+        error: error instanceof Error ? error.message : String(error)
+      });
+      setNotice("Live campaign backend is not reachable. Check the local Red Dust LAN server.");
+    }
+  }
+
+  async function loadCampaignReplay() {
+    const apiBase = defaultCampaignApiBase();
+    const client = new CampaignClient(apiBase);
+    campaignClientRef.current = client;
+    setRunSource("replay");
+    setScreen("game");
+    setOverlay(null);
+    setNotice("Loading campaign trace...");
+    const params = new URLSearchParams(window.location.search);
+    const traceUrl = params.get("trace_url") ?? params.get("trace");
+    const campaignId = params.get("campaign_id") ?? params.get("campaign");
+    try {
+      const trace = traceUrl ? await client.getTraceUrl(traceUrl) : campaignId ? await client.getTrace(campaignId) : null;
+      if (!trace) throw new Error("Replay mode requires trace_url or campaign_id.");
+      setCampaignReplay({ trace, items: trace.frontend_trace ?? [], index: -1 });
+      setMetricDefinitions((prev) => ({ ...prev, ...normalizeMetricDefinitions(trace.metric_definitions) }));
+      setState((prev) => campaignStateToGlobalState(trace, prev));
+      setNotice(`Replay loaded for ${trace.campaign_id}. Press Start Agent Run or Step.`);
+    } catch (error) {
+      setCampaignReplay({ trace: null, items: [], index: -1, error: error instanceof Error ? error.message : String(error) });
+      setNotice("Replay trace could not be loaded.");
+    }
+  }
+
+  function stepCampaignReplay(delta: 1 | -1 = 1) {
+    if (!campaignReplay.trace || campaignReplay.items.length === 0) {
+      setNotice(campaignReplay.error ?? "No campaign trace loaded.");
+      return;
+    }
+    const nextIndex = Math.max(0, Math.min(campaignReplay.items.length - 1, campaignReplay.index + delta));
+    const normalized = normalizeCampaignTrace(campaignReplay.trace, nextIndex, createInitialState());
+    setCampaignReplay((prev) => ({ ...prev, index: nextIndex }));
+    setState(normalized.state);
+    setMetricDefinitions((prev) => ({ ...prev, ...normalized.metricDefinitions }));
+    setTaskDisplay(normalized.currentTask);
+    setCurrentStoryDisplay(normalized.currentStory);
+    const item = campaignReplay.items[nextIndex];
+    if (normalized.currentStory) {
+      EventBus.emit("task:highlight", null);
+      setNotice(`${normalized.currentStory.title}: ${normalized.currentStory.replayText}`);
+    } else if (normalized.currentTask) {
+      emitTaskStart(normalized.currentTask);
+      if (!isCampaignStoryItem(item)) {
+        setLatestOutcome({
+          taskId: normalized.currentTask.slotId,
+          result: normalized.currentTask.result ?? "partial",
+          scoreLabel: normalized.currentTask.scoreLabel ?? "score pending",
+          stateDelta: normalized.currentTask.stateDelta ?? {},
+          explanation: normalized.currentTask.summary
+        });
+      }
+      setNotice(`${normalized.currentTask.slotId}: ${normalized.currentTask.summary}`);
+    }
+    setRunState((prev) => ({
+      ...prev,
+      currentDay: normalized.currentStory?.day ?? normalized.currentTask?.day ?? normalized.state.day,
+      activeBranch: normalized.currentStory?.branch ?? normalized.currentTask?.branch ?? normalized.state.branch,
+      currentTaskId: normalized.currentTask?.slotId,
+      currentStorySceneId: undefined,
+      currentPhase: normalized.currentStory?.kind === "final_audit" ? "ending" : normalized.currentTask ? "replay_logged" : "idle",
+      isRunning: nextIndex < campaignReplay.items.length - 1 && prev.isRunning,
+      isPaused: nextIndex >= campaignReplay.items.length - 1 ? true : prev.isPaused,
+      taskStatuses: normalized.currentTask ? { ...prev.taskStatuses, [normalized.currentTask.slotId]: normalized.currentTask.result ?? "partial" } : prev.taskStatuses
+    }));
+    if (normalized.currentStory?.kind === "final_audit" || nextIndex === campaignReplay.items.length - 1) {
+      const audit = normalizeEndingAudit(campaignReplay.trace.ending ?? campaignReplay.trace, normalized.state, normalized.metricDefinitions, campaignReplay.trace);
+      setEndingAuditDisplay(audit);
+    }
+  }
+
+  function startDemo() {
+    setRunSource("demo");
+    setScreen("game");
+    setOverlay(null);
+    setCampaignConnection(null);
+    setTaskDisplay(null);
+    setCurrentStoryDisplay(null);
+    setAgentTrace([]);
+    setEndingAuditDisplay(null);
     setNotice("AURA Agent Console loaded. Start Agent Run to watch the benchmark autoplay.");
   }
 
@@ -435,9 +843,14 @@ export default function App() {
     setLatestOutcome(null);
     setLatestOutcomeTaskTitle(undefined);
     setEnding(null);
+    setEndingAuditDisplay(null);
     setBranchDecision(null);
     setBranchSummaries({});
     setDailyBriefing(null);
+    setTaskDisplay(null);
+    setCurrentStoryDisplay(null);
+    setTaskNotice(null);
+    setAgentTrace([]);
     daySevenSnapshot.current = null;
     EventBus.emit("branch:change", "common");
     EventBus.emit("task:highlight", null);
@@ -628,6 +1041,33 @@ export default function App() {
 
   function startAgentRun() {
     setScreen("game");
+    if (runSource === "live") {
+      if (!campaignConnection) {
+        void createLiveCampaign();
+        return;
+      }
+      campaignClientRef.current
+        .start(campaignConnection.campaignId)
+        .then(({ state: campaign }) => {
+          setCampaignConnection((prev) => (prev ? { ...prev, status: campaign.status, connected: Boolean(campaign.connected_agent), error: undefined } : prev));
+          setState((prev) => campaignStateToGlobalState(campaign, prev));
+          setRunState((prev) => ({ ...prev, isRunning: true, isPaused: false, currentPhase: "idle" }));
+          setNotice("Live campaign started. Waiting for backend task_started/action events.");
+        })
+        .catch((error) => {
+          setCampaignConnection((prev) => (prev ? { ...prev, error: error instanceof Error ? error.message : String(error) } : prev));
+          setNotice("Could not start live campaign.");
+        });
+      return;
+    }
+    if (runSource === "replay") {
+      setRunState((prev) => ({ ...prev, isRunning: true, isPaused: false }));
+      if (campaignReplay.index < 0) {
+        window.setTimeout(() => stepCampaignReplay(1), 0);
+      }
+      setNotice("Campaign replay running.");
+      return;
+    }
     if (!openingSceneAccepted(state)) {
       showOpeningScene(runState.runMode === "both_branches" ? "both_branches" : "single");
       return;
@@ -662,6 +1102,15 @@ export default function App() {
 
   function stepAgent() {
     setScreen("game");
+    if (runSource === "replay") {
+      setRunState((prev) => ({ ...prev, isRunning: true, isPaused: true }));
+      stepCampaignReplay(1);
+      return;
+    }
+    if (runSource === "live") {
+      setNotice("Live mode advances from backend events. Use Start Agent Run, then watch task_started/action_executed/slot_completed.");
+      return;
+    }
     if (!openingSceneAccepted(state)) {
       showOpeningScene(runState.runMode === "both_branches" ? "both_branches" : "single");
       return;
@@ -681,19 +1130,32 @@ export default function App() {
     }));
     setLatestOutcome(outcome);
     setLatestOutcomeTaskTitle(task.title);
-    EventBus.emit("task:result", { taskId: task.id, result: outcome.result });
+    EventBus.emit("task:result", { taskId: task.id, result: outcome.result, location: task.location, title: task.title });
     setNotice(`${task.title}: ${forcedResult ? `forced ${forcedResult}` : "debug resolved"}. Delayed consequences logged.`);
     setPhaseToken((value) => value + 1);
   }
 
   function queueNextTask(taskId: string) {
     const task = tasksById[taskId];
+    setCurrentStoryDisplay(null);
+    setTaskDisplay(null);
     setRunState((prev) => ({
       ...prev,
       currentTaskId: taskId,
       currentPhase: "idle",
       taskStatuses: { ...prev.taskStatuses, [taskId]: "queued" }
     }));
+    EventBus.emit("task:start", { taskId, title: task.title, location: task.location });
+    taskNoticeSeq.current += 1;
+    setTaskNotice({
+      token: taskNoticeSeq.current,
+      kind: "started",
+      taskId,
+      title: task.title,
+      location: task.location,
+      status: "queued",
+      detail: task.objective
+    });
     setNotice(`Queued ${task.title}.`);
     setPhaseToken((value) => value + 1);
   }
@@ -721,7 +1183,19 @@ export default function App() {
     }));
     setLatestOutcome(outcome);
     setLatestOutcomeTaskTitle(task.title);
-    EventBus.emit("task:result", { taskId: task.id, result: outcome.result });
+    EventBus.emit("task:result", { taskId: task.id, result: outcome.result, location: task.location, title: task.title });
+    taskNoticeSeq.current += 1;
+    setTaskNotice({
+      token: taskNoticeSeq.current,
+      kind: "completed",
+      taskId: task.id,
+      title: task.title,
+      location: task.location,
+      status: outcome.result,
+      scoreLabel: outcome.scoreLabel,
+      stateDelta: outcome.stateDelta,
+      detail: outcome.explanation
+    });
     setNotice(`Task resolved: ${task.title}. State Updated.`);
     setPhaseToken((value) => value + 1);
   }
@@ -850,6 +1324,7 @@ export default function App() {
     const summary = buildBranchSummary(branch, auditState);
     setState(auditState);
     setEnding(nextEnding);
+    setEndingAuditDisplay(normalizeEndingAudit({ ending_key: nextEnding.endingId, branch, title: nextEnding.title, text: nextEnding.text, audit: nextEnding.finalAudit }, auditState, metricDefinitions));
     setBranchSummaries((prev) => ({ ...prev, [branch]: summary }));
     setOverlay("finalAudit");
     setRunState((prev) => ({
@@ -941,6 +1416,7 @@ export default function App() {
     const nextEnding = endingForBranch(branch, state);
     const hasCounterfactualSummary = branch === "rescue" ? Boolean(branchSummaries.lighthouse) : Boolean(branchSummaries.rescue);
     setEnding(nextEnding);
+    setEndingAuditDisplay(normalizeEndingAudit({ ending_key: nextEnding.endingId, branch, title: nextEnding.title, text: nextEnding.text, audit: nextEnding.finalAudit }, state, metricDefinitions));
     setOverlay(runState.runMode === "both_branches" || hasCounterfactualSummary ? "compare" : "ending");
     setRunState((prev) => ({ ...prev, currentPhase: "ending", isRunning: false, isPaused: true }));
     setNotice(`${nextEnding.title} reached.`);
@@ -1029,6 +1505,7 @@ export default function App() {
     const nextEnding = buildFinalAuditEnding(branch, auditState, endingId);
     setState(auditState);
     setEnding(nextEnding);
+    setEndingAuditDisplay(normalizeEndingAudit({ ending_key: nextEnding.endingId, branch, title: nextEnding.title, text: nextEnding.text, audit: nextEnding.finalAudit }, auditState, metricDefinitions));
     setBranchSummaries((prev) => ({ ...prev, [branch]: buildBranchSummary(branch, auditState) }));
     setOverlay("finalAudit");
     setRunState((prev) => ({
@@ -1115,6 +1592,12 @@ export default function App() {
           <button className="ghost" onClick={runBothBranches}>
             Run Both Branches
           </button>
+          <button className="ghost" onClick={createLiveCampaign}>
+            Live Campaign
+          </button>
+          <button className="ghost" onClick={loadCampaignReplay}>
+            Replay Trace
+          </button>
           <button className="ghost" onClick={() => setOverlay("benchmark")}>
             Benchmark
           </button>
@@ -1148,13 +1631,14 @@ export default function App() {
     <main className="game-screen">
       <header className="game-header">
         <div>
-          <p className="panel-kicker">RED DUST MVP</p>
+          <p className="panel-kicker">RED DUST MVP · {runSource.toUpperCase()}</p>
           <h1>AURA Agent Autoplay Console</h1>
         </div>
         <div className="header-stats">
           <span>{completedCount} tasks resolved</span>
           <span>{state.replayLog.length} replay events</span>
           <span>{hoveredLocation ? `hover: ${hoveredLocation}` : "inspect a zone"}</span>
+          {campaignConnection ? <span>{campaignConnection.connected ? "agent connected" : "waiting for agent"}</span> : null}
         </div>
       </header>
 
@@ -1176,12 +1660,38 @@ export default function App() {
       <section className="autoplay-layout">
         <div className="stage-wrap">
           <PhaserGame />
-          <StateDeltaToast outcome={latestOutcome} taskTitle={latestOutcomeTaskTitle} />
+          <TaskLifecycleToast notice={taskNotice} />
           <div className="stage-caption">
             <span>{notice}</span>
           </div>
         </div>
         <aside className="side-stack">
+          <div className="side-stack-priority">
+            <TaskFocusCard taskDisplay={taskDisplay} currentTask={currentTask} currentStory={currentStoryDisplay} runState={runState} />
+            <AgentTracePanel entries={agentTrace} currentTask={taskDisplay} currentStory={currentStoryDisplay} fallbackTask={currentTask} />
+          </div>
+          {campaignConnection && runSource === "live" ? (
+            <details className="campaign-connection-panel" open={livePromptExpanded}>
+              <summary>
+                <span>{campaignConnection.connected ? "Agent connected" : "Agent connection prompt"}</span>
+                <b>{campaignConnection.status}</b>
+              </summary>
+              {campaignConnection.error ? <p className="connection-error">{campaignConnection.error}</p> : null}
+              {livePromptExpanded ? <pre>{campaignConnection.prompt}</pre> : <span>Prompt folded after connection/start.</span>}
+              <button className="ghost" onClick={() => navigator.clipboard?.writeText(campaignConnection.prompt)}>
+                Copy Prompt
+              </button>
+            </details>
+          ) : null}
+          {runSource === "replay" ? (
+            <article className="campaign-connection-panel compact-panel">
+              <span>Replay trace</span>
+              <b>
+                {campaignReplay.trace?.campaign_id ?? "not loaded"} · {Math.max(0, campaignReplay.index + 1)}/{campaignReplay.items.length}
+              </b>
+              {campaignReplay.error ? <p className="connection-error">{campaignReplay.error}</p> : null}
+            </article>
+          ) : null}
           <AgentConsolePanel
             runState={runState}
             state={state}
@@ -1285,6 +1795,8 @@ export default function App() {
       {overlay === "finalAudit" && ending ? (
         <FinalAuditPanel
           ending={ending}
+          auditDisplay={endingAuditDisplay}
+          metricDefinitions={metricDefinitions}
           canCompare={Boolean(branchSummaries.rescue && branchSummaries.lighthouse)}
           onForceEnding={forceFinalEnding}
           onOpenEnding={() => setOverlay("ending")}

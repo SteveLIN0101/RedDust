@@ -1,13 +1,25 @@
 import Phaser from "phaser";
 import type { AgentPhase, Branch, TaskLocation, TaskOutcome } from "../data/types";
 
+export type TaskStartPayload = {
+  taskId: string;
+  title?: string;
+  location?: TaskLocation;
+};
+
+export type TaskResultPayload = Pick<TaskOutcome, "taskId" | "result"> & {
+  title?: string;
+  location?: TaskLocation;
+};
+
 type GameEvents = {
   "hotspot:click": TaskLocation;
   "hotspot:hover": TaskLocation | null;
   "agent:move-to-location": TaskLocation;
   "agent:phase-change": AgentPhase;
   "task:highlight": string | null;
-  "task:result": Pick<TaskOutcome, "taskId" | "result">;
+  "task:start": TaskStartPayload;
+  "task:result": TaskResultPayload;
   "day:change": number;
   "branch:change": Branch;
   "agent:arrived": TaskLocation;

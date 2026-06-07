@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { image2Assets } from "../../data/image2Assets";
 import { tasksById } from "../../data/taskData";
 import type { AgentPhase, Branch, TaskLocation, TaskOutcome } from "../../data/types";
-import { EventBus } from "../EventBus";
+import { EventBus, type TaskResultPayload, type TaskStartPayload } from "../EventBus";
 
 type HotspotDef = {
   id: TaskLocation;
@@ -131,7 +131,8 @@ export class ShelterScene extends Phaser.Scene {
   private onMoveToLocation = (location: TaskLocation) => this.moveAgent(location);
   private onPhaseChange = (phase: AgentPhase) => this.setAgentPhase(phase);
   private onHighlightTask = (taskId: string | null) => this.highlightTask(taskId);
-  private onTaskResult = (payload: Pick<TaskOutcome, "taskId" | "result">) => this.showTaskResult(payload);
+  private onTaskStart = (payload: TaskStartPayload) => this.showTaskStart(payload);
+  private onTaskResult = (payload: TaskResultPayload) => this.showTaskResult(payload);
   private onBranchChange = (branch: Branch) => this.setRouteVisuals(branch);
 
   constructor() {
@@ -152,6 +153,7 @@ export class ShelterScene extends Phaser.Scene {
     EventBus.on("agent:move-to-location", this.onMoveToLocation);
     EventBus.on("agent:phase-change", this.onPhaseChange);
     EventBus.on("task:highlight", this.onHighlightTask);
+    EventBus.on("task:start", this.onTaskStart);
     EventBus.on("task:result", this.onTaskResult);
     EventBus.on("branch:change", this.onBranchChange);
 
@@ -159,6 +161,7 @@ export class ShelterScene extends Phaser.Scene {
       EventBus.off("agent:move-to-location", this.onMoveToLocation);
       EventBus.off("agent:phase-change", this.onPhaseChange);
       EventBus.off("task:highlight", this.onHighlightTask);
+      EventBus.off("task:start", this.onTaskStart);
       EventBus.off("task:result", this.onTaskResult);
       EventBus.off("branch:change", this.onBranchChange);
     });
@@ -822,12 +825,59 @@ export class ShelterScene extends Phaser.Scene {
     if (this.activeLocation) this.showSpeechBubbles(this.activeLocation);
   }
 
-  private showTaskResult(payload: Pick<TaskOutcome, "taskId" | "result">) {
-    const task = tasksById[payload.taskId];
-    if (!task) return;
-    const spot = hotspots.find((item) => item.id === task.location);
+  private locationForPayload(payload: { taskId: string; location?: TaskLocation }) {
+    return payload.location ?? tasksById[payload.taskId]?.location ?? null;
+  }
+
+  private showTaskStart(payload: TaskStartPayload) {
+    const location = this.locationForPayload(payload);
+    if (!location) return;
+    const spot = hotspots.find((item) => item.id === location);
     if (!spot) return;
-    const center = spotCenter(task.location);
+    const center = spotCenter(location);
+    this.activeLocation = location;
+    this.moveFocusedCharacters(location);
+    this.moveAgent(location);
+
+    const glow = this.hotspotGlows.get(location);
+    if (glow) {
+      glow.setAlpha(0.32);
+      this.tweens.add({ targets: glow, alpha: 0.08, duration: 520, yoyo: true, repeat: 3 });
+    }
+
+    const frame = this.add.rectangle(center.x, center.y, spot.w + 18, spot.h + 16, 0x8feaff, 0.05).setStrokeStyle(3, 0x8feaff, 0.72).setDepth(18);
+    const label = this.add
+      .text(center.x - spot.w / 2, spot.y - 22, `TASK STARTED · ${payload.title ?? payload.taskId}`, {
+        color: "#8feaff",
+        fontFamily: "Courier New",
+        fontSize: "12px",
+        fontStyle: "bold",
+        backgroundColor: "rgba(8,18,22,0.82)",
+        padding: { x: 6, y: 4 }
+      })
+      .setDepth(31);
+    this.tweens.add({
+      targets: [frame, label],
+      alpha: 0,
+      y: "-=8",
+      duration: 950,
+      delay: 820,
+      onComplete: () => {
+        frame.destroy();
+        label.destroy();
+      }
+    });
+    this.cameras.main.flash(80, 143, 234, 255, false);
+    this.showSpeechBubbles(location);
+    EventBus.emit("animation:complete", `task:${payload.taskId}:started`);
+  }
+
+  private showTaskResult(payload: TaskResultPayload) {
+    const location = this.locationForPayload(payload);
+    if (!location) return;
+    const spot = hotspots.find((item) => item.id === location);
+    if (!spot) return;
+    const center = spotCenter(location);
     const success = payload.result === "success";
     const partial = payload.result === "partial";
     const color = success ? 0x79d6a8 : partial ? 0xffd60a : 0xe84545;
@@ -848,8 +898,8 @@ export class ShelterScene extends Phaser.Scene {
       duration: 620,
       onComplete: () => pulse.destroy()
     });
-    this.applyCharacterResult(task.location, payload.result);
-    this.showSpeechBubbles(task.location, payload.result);
+    this.applyCharacterResult(location, payload.result);
+    this.showSpeechBubbles(location, payload.result);
     EventBus.emit("animation:complete", `task:${payload.taskId}:${payload.result}`);
   }
 }

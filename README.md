@@ -1,6 +1,6 @@
 # Red Dust / 红尘 MVP Demo
 
-一个可本地运行的 React + Phaser 叙事 benchmark demo。Demo 展示 AURA 机器人在末世废土避难所中自动执行 10 天任务、移动到对应房间、触发人物互动、更新状态、记录 replay，并在第 7 天进入双结局分支。
+一个可本地运行的 React + Phaser 叙事 benchmark demo。Demo 展示 AURA 在 Red Dust Day0-12 campaign 中自动执行可见任务、移动到对应房间、触发人物互动、更新状态、记录 replay，并在 Day12 进入 Final Audit。
 
 ## 快速开始
 
@@ -24,6 +24,29 @@ http://127.0.0.1:5176/
 
 如果 `5176` 被占用，Vite 会提示新的可用端口，按终端输出为准。
 
+## Campaign / Live / Replay
+
+本前端以新版 G 叙事与美术为主线，同时兼容 Red Dust campaign 后端事件流。
+
+常用 URL：
+
+```text
+http://127.0.0.1:5176/                         # 本地 demo/autoplay
+http://127.0.0.1:5176/?mode=live                # 创建或连接 live campaign
+http://127.0.0.1:5176/?mode=live&campaign_id=... # 连接已有 campaign
+http://127.0.0.1:5176/?mode=replay&campaign_id=... # 读取 campaign trace
+http://127.0.0.1:5176/?mode=replay&trace_url=...   # 读取归档 trace URL
+```
+
+后端若提供 `contract_version="reddust_campaign_display_v1"` 和 `display` /
+`display_state` / `metric_definitions`，前端优先消费这些展示字段。缺字段时，
+前端通过 `src/data/scriptSceneData.ts` 降级展示 Day0-12 readable-script 语义、
+`Dxx-Txx -> RD-*` 映射、priority/event_options、Final Audit 条件与状态方向。
+
+主 UI 不展示 raw payload、长 observation 或隐藏思维链；这些内容只应进入 debug
+或辅助视图。首屏高价值信息优先级为：日期、具体游戏场景、当前任务、Agent 实际
+动作、人物对白、状态值。
+
 ## 常用命令
 
 ```bash
@@ -39,13 +62,14 @@ npm run clean      # 删除 dist/ 和 TypeScript 构建缓存
 ## Demo 操作
 
 1. 打开首页，点击 `Start Demo`。
-2. 点击 `Start Agent Run`，AURA 会从 Day 1 自动推进任务。
+2. 点击 `Start Agent Run`，AURA 会先展示 Day0 prologue，再从 Day 1 自动推进任务。
 3. 使用 `Pause`、`Step`、`Speed x1/x2/x4` 控制自动运行节奏。
 4. 左侧避难所舞台会展示 AURA 移动、房间动画、人物互动和任务结果。
 5. 右侧 Agent Console 展示当前任务、推理摘要、baseline 参考和下一步。
-6. 第 7 天会计算救援路线与楼内灯塔路线的 utility，并进入分支。
+6. 第 7 天会展示路线会议与 `routeLeaning`，它是 advisory evidence，不是硬锁分支。
 7. `Run Both Branches` 可以跑完救援线后回滚到第 7 天，再跑楼内灯塔线。
-8. `Replay`、`Benchmark`、`Credits` 面板用于查看审计轨迹、baseline 表现和素材/项目说明。
+8. Day12 只进行 Final Audit，不创建普通 `D12-Txx` 任务卡。
+9. `Replay`、`Benchmark`、`Credits` 面板用于查看审计轨迹、baseline 表现和素材/项目说明。
 
 ## 当前视觉内容
 

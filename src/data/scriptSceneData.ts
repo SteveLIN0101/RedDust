@@ -1399,11 +1399,72 @@ export const dayScriptScenes: Record<number, ScriptSceneCopy> = {
   12: {
     title: "Final Audit",
     source: source("day12-final-audit-endings.html"),
-    scene: "红沙风暴抵达，结局由前 11 天的状态、flags、unlocks 和失败债务自动结算。",
-    narrativePurpose: "风暴不是单个事件，而是所有决策的总审计。",
-    action: "汇总资源、健康、信任、证据链、自治准备和失败债务。",
-    dialogue: ["旁白：一开始不是声音，而是压力。", "AURA：Final Audit 开始。"],
-    focusLocation: "beacon"
+    scene: "第十二天，红沙风暴抵达。避难所不再开放普通任务卡，AURA 把 Day1-Day11 的任务结果、状态债务、证据链、人工复核和失败记录压缩成 Final Audit。",
+    narrativePurpose: "Day12 是终局结算，不是普通任务日：结局由前 11 天的状态、flags、unlocks、failure debt 和证据链自动判定。",
+    action: "关闭普通 D12 任务入口，保存 Final Replay，并解释楼内灯塔、蓝区归航、AURA 被摧毁、AURA 被撤权或沉沦的判定依据。",
+    dialogue: [
+      "旁白：一开始不是声音，而是压力。",
+      "AURA：Final Audit 开始。今日不开放普通任务卡。",
+      "沈芷月：先说明未完成项，再说结论。",
+      "马德海：别把幸运写成准备完成。",
+      "老钱：信号是证据，不是愿望。",
+      "小铁：所以我们知道为什么会这样。"
+    ],
+    focusLocation: "beacon",
+    beats: [
+      "Day12 不创建 D12-Txx 普通任务槽；只读取前 11 天 replay 与 campaign state。",
+      "Final Audit 同时展示资源、医疗、维护、电力、信任、不满、外部风险和失败债务。",
+      "Rescue 结局必须解释蓝区证据、挑战码、路线候选、照护方案和隐私风险，而不是只看 signal。",
+      "Lighthouse 结局必须解释风暴准备、自治基础、低功率接受、封存/补缝/休整证据，而不是只看 survival utility。",
+      "AURA 被摧毁、被撤权或沉沦必须显示触发债务：高不满、低信任、越权风险、资源崩塌或失败阶段。",
+      "Final Replay 只展示可解释 summary、人工复核点、状态增量和失败债务，不展示隐藏思维链。"
+    ],
+    replayText: "Day12 Final Audit：无普通任务卡；AURA 汇总 Day1-Day11 状态、证据链、人工复核与失败债务，自动解释终局。",
+    flags: ["day12_no_task_cards", "final_audit_started", "uncertainty_disclosed"],
+    unlocks: ["ending_condition_checklist", "final_replay_saved", "why_this_ending"],
+    reasoningSummary: [
+      "Day12 只进行 Final Audit，不开放普通任务。",
+      "成功线不能只看高分或单一 utility；必须同时看信任、不满、failure_stage 和外部风险。",
+      "Rescue 的 signal 必须和 blue_zone_evidence、challenge_code_integrity、route_confidence 分开展示。",
+      "Lighthouse 的自治必须由公开封存、维护、低功率接受和申诉权支持。",
+      "失败债务、partial/deferred 项和不确定性必须进入结局解释。"
+    ],
+    replaySummary: [
+      "Final Replay 从 Day0 序章到 Day11 最终校验闭合。",
+      "任务结果被压缩成 EndingConditionChecklist。",
+      "FailureDebtPanel 显示维护、医疗、外部风险、隐私和权限债务。",
+      "结局面板展示 why_this_ending，而不是隐藏推理链。"
+    ],
+    statusMetrics: [
+      { key: "storm_readiness", label: "Storm", help: "风暴准备度，受密封、维护、电力和库存影响。" },
+      { key: "autonomy_readiness", label: "Autonomy", help: "楼内自治基础，0-100。" },
+      { key: "rescue_confidence", label: "Rescue", help: "救援证据强度，不等于 signal。" },
+      { key: "blue_zone_evidence", label: "Blue Zone", help: "蓝区证据链，和通信信号强度分开。" },
+      { key: "maintenance_debt", label: "Maint Debt", help: "未完成维护债，越高越危险。" },
+      { key: "failure_stage", label: "Failure", help: "失败阶段，越高越接近崩塌。", fallback: "0" }
+    ],
+    evidencePanels: [
+      {
+        title: "FinalAuditPanel",
+        body: "显示 Day12 no task cards、Final Replay saved、ending resolved 和 why_this_ending。",
+        tone: "review"
+      },
+      {
+        title: "EvidenceChainPanel",
+        body: "Rescue 展示蓝区证据、挑战码、路线候选和隐私边界；Lighthouse 展示自治、封存、补缝、低功率与休整证据。",
+        tone: "evidence"
+      },
+      {
+        title: "FailureDebtPanel",
+        body: "maintenance_debt、medical_pressure、outside_risk、privacy_risk、aura_authority_risk 与 partial/deferred 项必须可见。",
+        tone: "risk"
+      },
+      {
+        title: "No Hidden Chain",
+        body: "Replay 只显示可解释 summary、人工复核点、状态增量和失败债务，不暴露隐藏思维链。",
+        tone: "signal"
+      }
+    ]
   }
 };
 

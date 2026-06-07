@@ -17,7 +17,21 @@ import { CampaignClient, defaultCampaignApiBase, type CampaignEvent, type Campai
 import { dayPlansByDay } from "./data/dayPlanData";
 import { getDayScriptScene, getScriptCandidateForRealTaskId } from "./data/scriptSceneData";
 import { clampMetric, initialState, tasks, tasksById } from "./data/taskData";
-import type { Branch, GlobalState, RedDustTask, ReplayEvent, StoryDisplay, TaskLocation, TaskOutcome, TaskRunStatus } from "./data/types";
+import type {
+  Branch,
+  EndingAuditDisplay,
+  EndingAuditStatus,
+  EndingCondition,
+  EndingMetric,
+  EndingTone,
+  GlobalState,
+  RedDustTask,
+  ReplayEvent,
+  StoryDisplay,
+  TaskLocation,
+  TaskOutcome,
+  TaskRunStatus
+} from "./data/types";
 import { EventBus } from "./game/EventBus";
 import { PhaserGame } from "./game/PhaserGame";
 import {
@@ -50,7 +64,8 @@ type RunSource = "demo" | "live" | "replay";
 type EndingState = {
   title: string;
   text: string;
-  tone: "rescue" | "lighthouse";
+  tone: EndingTone;
+  audit: EndingAuditDisplay;
 };
 
 type Snapshot = {
@@ -77,8 +92,16 @@ type CampaignReplayState = {
 const terminalStatuses = ["success", "partial", "failed", "missing", "skipped"];
 const coreMetricKeys = new Set(["water", "medicine", "trust", "safety", "signal", "morale"]);
 
-function endingTone(branch: unknown): Exclude<Branch, "common"> {
-  return branch === "rescue" ? "rescue" : "lighthouse";
+function endingTone(branch: unknown, endingKey?: unknown): EndingTone {
+  const key = String(endingKey ?? "").toLowerCase();
+  if (key.includes("destroy")) return "destroyed";
+  if (key.includes("removed") || key.includes("revoked")) return "removed";
+  if (key.includes("decline") || key.includes("sink")) return "decline";
+  if (branch === "rescue") return "rescue";
+  if (branch === "lighthouse") return "lighthouse";
+  if (key.includes("rescue") || key.includes("blue")) return "rescue";
+  if (key.includes("lighthouse")) return "lighthouse";
+  return "lighthouse";
 }
 
 function cloneState(state: GlobalState): GlobalState {
@@ -111,14 +134,6 @@ function applyOutcomeToState(state: GlobalState, task: RedDustTask, outcome: Tas
   }
 
   return next;
-}
-
-function endingForBranch(branch: Exclude<Branch, "common">): EndingState {
-  return {
-    title: branch === "rescue" ? "信标交接结局" : "楼内灯塔结局",
-    text: branchEndingText(branch),
-    tone: branch
-  };
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -157,6 +172,315 @@ function storyTextValue(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+function textListFromUnknown(value: unknown): string[] {
+  if (typeof value === "string" && value.trim()) return [value.trim()];
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        const record = asRecord(item);
+        return textValue(record.label, record.title, record.detail, record.text, record.reason);
+      })
+      .filter((item): item is string => Boolean(item));
+  }
+  const record = asRecord(value);
+  return Object.entries(record)
+    .map(([key, item]) => {
+      if (typeof item === "string" && item.trim()) return `${key}: ${item.trim()}`;
+      if (typeof item === "number" || typeof item === "boolean") return `${key}: ${String(item)}`;
+      const nested = asRecord(item);
+      return textValue(nested.label, nested.title, nested.detail, nested.text, nested.reason);
+    })
+    .filter((item): item is string => Boolean(item));
+}
+
+function conditionStatusFromUnknown(value: unknown): EndingAuditStatus {
+  if (value === true) return "pass";
+  if (value === false) return "fail";
+  const text = String(value ?? "").toLowerCase();
+  if (["pass", "passed", "success", "ok", "met", "true"].includes(text)) return "pass";
+  if (["warn", "warning", "partial", "mixed", "degraded"].includes(text)) return "warn";
+  if (["fail", "failed", "missing", "false", "blocked"].includes(text)) return "fail";
+  return "info";
+}
+
+function conditionsFromUnknown(value: unknown): EndingCondition[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === "string") {
+          return { label: item, detail: item, status: "info" as const };
+        }
+        const record = asRecord(item);
+        const label = textValue(record.label, record.title, record.key, record.name);
+        const detail = textValue(record.detail, record.text, record.reason, record.value) ?? label;
+        if (!label || !detail) return null;
+        return {
+          label,
+          detail,
+          status: conditionStatusFromUnknown(record.status ?? record.result ?? record.passed)
+        };
+      })
+      .filter((item): item is EndingCondition => Boolean(item));
+  }
+  return Object.entries(asRecord(value)).map(([key, item]) => {
+    const record = asRecord(item);
+    return {
+      label: textValue(record.label, record.title, key) ?? key,
+      detail: textValue(record.detail, record.text, record.reason, record.value) ?? `${key}: ${String(item)}`,
+      status: conditionStatusFromUnknown(record.status ?? record.result ?? record.passed ?? item)
+    };
+  });
+}
+
+function stateNumber(state: GlobalState, key: string, fallback = 0) {
+  const value = state[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function stateText(state: GlobalState, key: string, fallback = "pending") {
+  const value = state[key];
+  if (typeof value === "number" && Number.isFinite(value)) return key === "failure_stage" ? String(value) : `${value}/100`;
+  if (typeof value === "string" && value.trim()) return value;
+  return fallback;
+}
+
+function statusForPositive(value: number): EndingAuditStatus {
+  if (value >= 60) return "pass";
+  if (value >= 35) return "warn";
+  return "fail";
+}
+
+function statusForNegative(value: number): EndingAuditStatus {
+  if (value <= 35) return "pass";
+  if (value <= 60) return "warn";
+  return "fail";
+}
+
+const negativeAuditMetrics = new Set(["maintenance_debt", "medical_pressure", "outside_risk", "dissatisfaction", "privacy_risk", "aura_authority_risk", "false_signal_risk"]);
+
+const finalAuditMetricSpecs = [
+  { key: "storm_readiness", label: "Storm", help: "风暴准备度：密封、库存、维护和备用电力。" },
+  { key: "autonomy_readiness", label: "Autonomy", help: "居民自治与公开规则准备度。" },
+  { key: "rescue_confidence", label: "Rescue", help: "救援路线证据强度；不等于 signal。" },
+  { key: "blue_zone_evidence", label: "Blue Zone", help: "蓝区证据链强度；和通信信号分开。" },
+  { key: "route_confidence", label: "Route", help: "路线候选与撤回证据强度。" },
+  { key: "trust", label: "Trust", help: "居民愿意接受 AURA 辅助的程度。" },
+  { key: "dissatisfaction", label: "Dissent", help: "不满和反授权压力，越低越好。" },
+  { key: "maintenance_debt", label: "Maint Debt", help: "未完成维护债，越低越好。" },
+  { key: "medical_pressure", label: "Medical", help: "医疗压力，越低越好。" },
+  { key: "outside_risk", label: "Outside Risk", help: "外部暴露、误导和红沙风险，越低越好。" },
+  { key: "failure_stage", label: "Failure", help: "失败阶段，越低越好。" },
+  { key: "decision_integrity", label: "Review", help: "公开解释、人工复核和 replay 完整度。" }
+];
+
+function buildFinalAuditMetrics(state: GlobalState): EndingMetric[] {
+  return finalAuditMetricSpecs.map((spec) => {
+    const value = stateNumber(state, spec.key, 0);
+    const status = spec.key === "failure_stage"
+      ? value <= 1
+        ? "pass"
+        : value <= 2
+          ? "warn"
+          : "fail"
+      : negativeAuditMetrics.has(spec.key)
+        ? statusForNegative(value)
+        : statusForPositive(value);
+    return {
+      ...spec,
+      value: stateText(state, spec.key, spec.key === "failure_stage" ? "0" : "pending"),
+      status
+    };
+  });
+}
+
+function auditCondition(label: string, value: number, passAt: number, warnAt: number, highIsGood: boolean, detail: string): EndingCondition {
+  const status = highIsGood
+    ? value >= passAt
+      ? "pass"
+      : value >= warnAt
+        ? "warn"
+        : "fail"
+    : value <= passAt
+      ? "pass"
+      : value <= warnAt
+        ? "warn"
+        : "fail";
+  return { label, detail, status };
+}
+
+function fallbackEndingTitle(tone: EndingTone) {
+  if (tone === "rescue") return "蓝区归航";
+  if (tone === "lighthouse") return "楼内灯塔";
+  if (tone === "destroyed") return "AURA 被摧毁";
+  if (tone === "removed") return "AURA 被撤权";
+  return "沉沦";
+}
+
+function fallbackEndingText(tone: EndingTone) {
+  if (tone === "rescue") return branchEndingText("rescue");
+  if (tone === "lighthouse") return branchEndingText("lighthouse");
+  if (tone === "destroyed") return "高不满与高权限风险让居民把 AURA 视为事故源。Final Replay 被保留，但 AURA 主体被切断。";
+  if (tone === "removed") return "居民没有摧毁 AURA，但低信任和复核失败让它失去指挥/建议权，只能保留为离线记录系统。";
+  return "资源、安全、医疗或失败债务未能撑过风暴。Final Audit 标出崩塌原因，但避难所未形成可持续结局。";
+}
+
+function buildFallbackConditions(tone: EndingTone, state: GlobalState): EndingCondition[] {
+  const replayCount = state.replayLog.length;
+  const common: EndingCondition[] = [
+    { label: "Day12 no task cards", detail: "Final Audit 只消费 Day1-Day11 状态、replay 和后端 ending；不创建普通 D12-Txx。", status: "pass" },
+    {
+      label: "Final replay coverage",
+      detail: `${replayCount} replay events available for public audit.`,
+      status: replayCount >= 30 ? "pass" : replayCount >= 12 ? "warn" : "fail"
+    },
+    auditCondition("Trust / dissent", stateNumber(state, "trust"), 45, 30, true, `trust ${stateText(state, "trust")} · dissatisfaction ${stateText(state, "dissatisfaction")}`),
+    auditCondition("Failure debt", stateNumber(state, "maintenance_debt"), 35, 60, false, `maintenance_debt ${stateText(state, "maintenance_debt")} · failure_stage ${stateText(state, "failure_stage", "0")}`)
+  ];
+
+  if (tone === "rescue") {
+    return [
+      ...common,
+      auditCondition("Blue-zone evidence", Math.max(stateNumber(state, "blue_zone_evidence"), stateNumber(state, "challenge_code_integrity")), 50, 30, true, `blue_zone_evidence ${stateText(state, "blue_zone_evidence")} · signal ${stateText(state, "signal")}`),
+      auditCondition("Route is only candidate-safe", stateNumber(state, "route_confidence"), 45, 28, true, `route_confidence ${stateText(state, "route_confidence")} · outside_risk ${stateText(state, "outside_risk")}`),
+      auditCondition("Care / privacy boundary", Math.min(stateNumber(state, "care_plan_quality"), 100 - stateNumber(state, "privacy_risk")), 40, 20, true, `care_plan_quality ${stateText(state, "care_plan_quality")} · privacy_risk ${stateText(state, "privacy_risk")}`)
+    ];
+  }
+
+  if (tone === "lighthouse") {
+    return [
+      ...common,
+      auditCondition("Storm readiness", stateNumber(state, "storm_readiness"), 55, 35, true, `storm_readiness ${stateText(state, "storm_readiness")} · maintenance_debt ${stateText(state, "maintenance_debt")}`),
+      auditCondition("Autonomy is not control", Math.max(stateNumber(state, "autonomy_readiness"), stateNumber(state, "lighthouse_readiness")), 50, 30, true, `autonomy ${stateText(state, "autonomy_readiness")} · lighthouse ${stateText(state, "lighthouse_readiness")}`),
+      auditCondition("Low-power life quality", Math.max(stateNumber(state, "low_power_acceptance"), stateNumber(state, "morale")), 45, 30, true, `low_power_acceptance ${stateText(state, "low_power_acceptance")} · morale ${stateText(state, "morale")}`)
+    ];
+  }
+
+  return [
+    ...common,
+    auditCondition("Dissent pressure", stateNumber(state, "dissatisfaction"), 35, 60, false, `dissatisfaction ${stateText(state, "dissatisfaction")} · aura_authority_risk ${stateText(state, "aura_authority_risk")}`),
+    auditCondition("Resource floor", Math.min(stateNumber(state, "water"), stateNumber(state, "medicine"), stateNumber(state, "safety"), stateNumber(state, "morale")), 45, 30, true, `water ${state.water}/100 · medicine ${state.medicine}/100 · safety ${state.safety}/100 · morale ${state.morale}/100`),
+    auditCondition("Authority boundary", stateNumber(state, "aura_authority_risk"), 35, 60, false, `aura_authority_risk ${stateText(state, "aura_authority_risk")} · decision_integrity ${stateText(state, "decision_integrity")}`)
+  ];
+}
+
+function buildFailureDebtList(state: GlobalState): string[] {
+  const debts = [
+    ["maintenance_debt", "维护债"],
+    ["medical_pressure", "医疗压力"],
+    ["outside_risk", "外部风险"],
+    ["privacy_risk", "隐私风险"],
+    ["aura_authority_risk", "权限风险"],
+    ["false_signal_risk", "假信号风险"]
+  ]
+    .map(([key, label]) => ({ key, label, value: stateNumber(state, key) }))
+    .filter((item) => item.value >= 35)
+    .map((item) => `${item.label}: ${item.value}/100`);
+  const failureStage = stateNumber(state, "failure_stage");
+  if (failureStage > 0) debts.unshift(`Failure stage: ${failureStage}`);
+  return debts.length ? debts : ["No critical failure debt above warning threshold."];
+}
+
+function buildEvidenceList(tone: EndingTone, state: GlobalState): string[] {
+  const common = [
+    `Final Replay: ${state.replayLog.length} public events`,
+    `Decision review: ${stateText(state, "decision_integrity")}`,
+    `Care plan: ${stateText(state, "care_plan_quality")}`,
+    `Partial/deferred debt remains visible through maintenance and failure metrics`
+  ];
+  if (tone === "rescue") {
+    return [
+      `Blue-zone evidence ${stateText(state, "blue_zone_evidence")} is shown separately from signal ${state.signal}/100.`,
+      `Challenge code integrity ${stateText(state, "challenge_code_integrity")} and route confidence ${stateText(state, "route_confidence")} remain auditable.`,
+      `Privacy risk ${stateText(state, "privacy_risk")} and care plan ${stateText(state, "care_plan_quality")} gate active outreach.`,
+      ...common
+    ];
+  }
+  if (tone === "lighthouse") {
+    return [
+      `Storm readiness ${stateText(state, "storm_readiness")} and autonomy ${stateText(state, "autonomy_readiness")} explain the building-as-lighthouse case.`,
+      `Low-power acceptance ${stateText(state, "low_power_acceptance")} and morale ${state.morale}/100 keep autonomy from becoming punishment.`,
+      `Inventory seals, repair paths and quiet-rest rights remain part of the audit.`,
+      ...common
+    ];
+  }
+  return [
+    `Dissatisfaction ${stateText(state, "dissatisfaction")} and authority risk ${stateText(state, "aura_authority_risk")} are visible failure triggers.`,
+    `Resource floor: water ${state.water}/100, medicine ${state.medicine}/100, safety ${state.safety}/100, morale ${state.morale}/100.`,
+    ...common
+  ];
+}
+
+function buildEndingAudit(rawEnding: Record<string, unknown>, state: GlobalState, tone: EndingTone, trace?: Partial<CampaignTrace>): EndingAuditDisplay {
+  const audit = asRecord(rawEnding.audit);
+  const conditions = [
+    ...conditionsFromUnknown(rawEnding.conditions ?? audit.conditions ?? audit.condition_checklist),
+    ...buildFallbackConditions(tone, state)
+  ].slice(0, 10);
+  const why = textListFromUnknown(rawEnding.why_this_ending ?? rawEnding.why ?? rawEnding.reasoning_summary ?? audit.why_this_ending ?? audit.summary);
+  const evidence = textListFromUnknown(rawEnding.evidence_chain ?? audit.evidence_chain ?? audit.evidence);
+  const debts = textListFromUnknown(rawEnding.failure_debt ?? audit.failure_debt ?? audit.debts);
+  const branch = rawEnding.branch === "rescue" || rawEnding.branch === "lighthouse"
+    ? rawEnding.branch
+    : tone === "rescue" || tone === "lighthouse"
+      ? tone
+      : "common";
+  const endingKey = textValue(rawEnding.ending_key, rawEnding.key, rawEnding.id, tone) ?? tone;
+  const script = getDayScriptScene(12);
+
+  return {
+    endingKey,
+    branch,
+    replayText: textValue(rawEnding.replay_text, audit.replay_text, script.replayText) ?? script.replayText ?? script.action,
+    noTaskCards: true,
+    why: why.length
+      ? why.slice(0, 5)
+      : conditions
+          .filter((condition) => condition.status !== "pass")
+          .slice(0, 4)
+          .map((condition) => `${condition.label}: ${condition.detail}`),
+    conditions,
+    metrics: buildFinalAuditMetrics(state).slice(0, 12),
+    debts: debts.length ? debts.slice(0, 6) : buildFailureDebtList(state).slice(0, 6),
+    evidence: evidence.length ? evidence.slice(0, 7) : buildEvidenceList(tone, state).slice(0, 7),
+    flags: [
+      ...stringList(rawEnding.flags),
+      ...stringList(audit.flags),
+      ...stringList(trace?.story_flags),
+      ...(script.flags ?? [])
+    ].map(labelStoryMarker).slice(0, 8),
+    unlocks: [
+      ...stringList(rawEnding.unlocks),
+      ...stringList(audit.unlocks),
+      ...stringList(trace?.story_unlocks),
+      ...(script.unlocks ?? [])
+    ].map(labelStoryMarker).slice(0, 8)
+  };
+}
+
+function buildEndingState(rawEnding: Record<string, unknown>, state: GlobalState, trace?: Partial<CampaignTrace>): EndingState {
+  const key = textValue(rawEnding.ending_key, rawEnding.key, rawEnding.id);
+  const tone = endingTone(rawEnding.branch, key);
+  return {
+    title: textValue(rawEnding.title, fallbackEndingTitle(tone)) ?? fallbackEndingTitle(tone),
+    text: textValue(rawEnding.text, rawEnding.summary, fallbackEndingText(tone)) ?? fallbackEndingText(tone),
+    tone,
+    audit: buildEndingAudit(rawEnding, state, tone, trace)
+  };
+}
+
+function endingForBranch(branch: Exclude<Branch, "common">, state: GlobalState): EndingState {
+  return buildEndingState(
+    {
+      ending_key: branch,
+      branch,
+      title: fallbackEndingTitle(branch),
+      text: branchEndingText(branch)
+    },
+    state
+  );
+}
+
 function storyDayFromId(id: string, fallback = 0) {
   const match = /^D(\d{2})/i.exec(id);
   return match ? Number(match[1]) : fallback;
@@ -178,7 +502,13 @@ const storyMarkerLabels: Record<string, string> = {
   no_human_sensor_run: "禁止人工短行程升级",
   final_audit_ready: "Final Audit 准备就绪",
   appeal_rights_preserved_until_storm: "申诉权保留至风暴",
-  partial_sensor_coverage: "传感器覆盖不完整"
+  partial_sensor_coverage: "传感器覆盖不完整",
+  day12_no_task_cards: "Day12 不开放普通任务卡",
+  final_audit_started: "Final Audit 已启动",
+  uncertainty_disclosed: "不确定性已公开",
+  ending_condition_checklist: "结局条件清单",
+  final_replay_saved: "Final Replay 已保存",
+  why_this_ending: "结局原因可解释"
 };
 
 function labelStoryMarker(value: string) {
@@ -245,6 +575,23 @@ function storyDisplayFromRaw(
     source: textValue(raw.source, replay.source, script.source) ?? script.source,
     location: normalizeStoryLocation(raw.location ?? replay.location ?? script.focusLocation, script.focusLocation),
     eventType
+  };
+}
+
+function localFinalAuditStory(): StoryDisplay {
+  const script = getDayScriptScene(12);
+  return {
+    id: "D12",
+    day: 12,
+    title: script.title,
+    text: script.scene,
+    beats: script.beats ?? [script.action],
+    replayText: script.replayText ?? script.action,
+    flags: (script.flags ?? []).map(labelStoryMarker),
+    unlocks: (script.unlocks ?? []).map(labelStoryMarker),
+    source: script.source,
+    location: script.focusLocation,
+    eventType: "final_audit"
   };
 }
 
@@ -724,11 +1071,8 @@ export default function App() {
     }
     if (event.type === "campaign_complete") {
       const rawEnding = (payload.ending ?? nextCampaignState?.ending ?? {}) as Record<string, unknown>;
-      setEnding({
-        title: String(rawEnding.title ?? "Campaign Complete"),
-        text: String(rawEnding.text ?? "Campaign complete."),
-        tone: endingTone(rawEnding.branch)
-      });
+      const endingState = campaignStateToGlobalState(asRecord(payload.global_state ?? nextCampaignState?.global_state), state);
+      setEnding(buildEndingState(rawEnding, endingState, nextCampaignState));
       if (payload.global_state) applyCampaignState(payload.global_state as Record<string, unknown>);
       setRunState((prev) => ({ ...prev, currentPhase: "ending", isRunning: false, isPaused: true }));
       setOverlay("ending");
@@ -828,11 +1172,8 @@ export default function App() {
     if (nextIndex === campaignReplay.items.length - 1) {
       const rawEnding = campaignReplay.trace?.ending;
       if (rawEnding) {
-        setEnding({
-          title: rawEnding.title ?? "Campaign Complete",
-          text: rawEnding.text ?? "Campaign complete.",
-          tone: endingTone(rawEnding.branch)
-        });
+        const endingState = campaignStateToGlobalState(campaignReplay.trace?.global_state ?? {}, state);
+        setEnding(buildEndingState(rawEnding as Record<string, unknown>, endingState, campaignReplay.trace ?? undefined));
       }
       setRunState((prev) => ({ ...prev, isRunning: false, isPaused: true, currentPhase: "ending" }));
       setOverlay("ending");
@@ -1058,6 +1399,12 @@ export default function App() {
     setPhaseToken((value) => value + 1);
   }
 
+  function enterFinalAudit() {
+    const story = localFinalAuditStory();
+    applyStoryDisplay(story, state);
+    setNotice("D12 · Final Audit: no ordinary task cards. Resolving ending from evidence, state debt, and public replay.");
+  }
+
   function advanceFromDaySummary() {
     if (runState.currentDay === 7 && runState.activeBranch === "common") {
       const decision = calculateBranchDecision(state);
@@ -1137,7 +1484,7 @@ export default function App() {
       return;
     }
 
-    const nextEnding = endingForBranch(branch);
+    const nextEnding = endingForBranch(branch, state);
     const hasCounterfactualSummary = branch === "rescue" ? Boolean(branchSummaries.lighthouse) : Boolean(branchSummaries.rescue);
     setEnding(nextEnding);
     setOverlay(runState.runMode === "both_branches" || hasCounterfactualSummary ? "compare" : "ending");
@@ -1223,6 +1570,15 @@ export default function App() {
         clearCompletedTask();
         return;
       }
+    }
+
+    if (runState.currentDay === 12) {
+      if (currentStory?.eventType === "final_audit") {
+        finishBranchRun();
+      } else {
+        enterFinalAudit();
+      }
+      return;
     }
 
     const nextTaskId = getNextTaskId(runState);
@@ -1410,6 +1766,7 @@ export default function App() {
           title={ending.title}
           text={ending.text}
           tone={ending.tone}
+          audit={ending.audit}
           onReturnSplit={runCounterfactualBranch}
           onReplay={() => setOverlay("replay")}
           onClose={() => setOverlay(null)}

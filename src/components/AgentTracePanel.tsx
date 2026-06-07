@@ -105,7 +105,8 @@ export function campaignEventToAgentTraceEntry(event: CampaignEvent): AgentTrace
   }
 
   if (event.type === "story_event" || event.type === "branch_scene" || event.type === "final_audit") {
-    const story = { ...payload, ...((payload.story_event ?? {}) as Record<string, unknown>) };
+    const nestedStory = (payload.story_event ?? payload.branch_scene ?? payload.final_audit ?? {}) as Record<string, unknown>;
+    const story = { ...payload, ...nestedStory };
     const replay = (payload.replay_event ?? {}) as Record<string, unknown>;
     return {
       id: `${event.seq}:${event.type}`,

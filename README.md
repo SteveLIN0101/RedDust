@@ -45,7 +45,8 @@ npm run clean      # 删除 dist/ 和 TypeScript 构建缓存
 5. 右侧 Agent Console 展示当前任务、推理摘要、baseline 参考和下一步。
 6. 本地 demo 在第 7 天打开 route fork panel：显示 rescue/lighthouse 证据倾向、不可接受条件和 counterfactual route，不把 utility 当作强制命令。
 7. `Run Both Windows` 可以跑完救援执行窗口后回滚到第 7 天，再跑楼内灯塔反事实窗口。
-8. `Replay`、`Benchmark`、`Credits` 面板用于查看审计轨迹、baseline 表现和素材/项目说明。
+8. Day12 进入 Final Audit，不开放普通任务卡；结局面板展示条件清单、状态债务、证据链和 `why_this_ending`。
+9. `Replay`、`Benchmark`、`Credits` 面板用于查看审计轨迹、baseline 表现和素材/项目说明。
 
 ## Campaign 后端双模式
 
@@ -113,6 +114,7 @@ Replay 支持自动播放、暂停、Step、Back、Speed x1/x2/x4，以及跳转
 - Day9 是路线代价账本：前端展示 `D09-T03/D09-T02/D09-T04` 为三项推荐付费任务，`D09-T01` 标为 deferred-with-warning / maintenance debt，而不是当天必做成功项。
 - Day10 是低耗与人心校验日：前端展示 `D10-T02/D10-T01/D10-T03` 为三项推荐任务，`D10-T04` 标为 conditional garage edge scout / candidate_not_confirmed。
 - Day11 是 Final Audit 前最后可行动日：前端展示 `D11-T01/D11-T04/D11-T03` 为三项推荐终检，`D11-T02` 标为 conditional low-exposure sensor recovery / partial_sensor_coverage，不显示完整预警或人工短行程升级。
+- Day12 是 Final Audit，不创建普通 `D12-Txx` session；前端优先展示后端 `final_audit`/`campaign_complete`，缺少 `why_this_ending`、conditions 或 audit 字段时，用当前 0-100 状态、replay、失败债务和本地 Day12 script fallback 生成 `EndingConditionChecklist`。
 - `RD-*` 技术任务 ID 只保留在 metadata/benchmark 详情中；主任务面板优先显示 `Dxx-Txx` 剧情行动、场景对白、AURA/居民对话或旁白。
 - 主游戏 shell 首屏优先保留日期、场景、当前任务、Agent 动作、人物对白和核心状态；连接 prompt、长 trace、replay feed 与辅助 console 可折叠或进入局部/页面下方滚动区。
 - Day timeline 固定展示 Day0-12 和 Ending 共 14 项，一行内完成；移动端只保留紧凑标记，不横向滚动。

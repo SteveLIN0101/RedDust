@@ -1,5 +1,37 @@
 export type Branch = "common" | "rescue" | "lighthouse";
 
+export type EndingTone = "rescue" | "lighthouse" | "destroyed" | "removed" | "decline";
+
+export type EndingAuditStatus = "pass" | "warn" | "fail" | "info";
+
+export type EndingCondition = {
+  label: string;
+  detail: string;
+  status: EndingAuditStatus;
+};
+
+export type EndingMetric = {
+  key: string;
+  label: string;
+  value: string;
+  help: string;
+  status: EndingAuditStatus;
+};
+
+export type EndingAuditDisplay = {
+  endingKey: string;
+  branch: Branch;
+  replayText: string;
+  noTaskCards: boolean;
+  why: string[];
+  conditions: EndingCondition[];
+  metrics: EndingMetric[];
+  debts: string[];
+  evidence: string[];
+  flags: string[];
+  unlocks: string[];
+};
+
 export type CoreMetricKey = "water" | "medicine" | "trust" | "safety" | "signal" | "morale";
 
 export type MetricKey = string;

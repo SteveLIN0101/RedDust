@@ -1828,6 +1828,14 @@ img {
   padding-right: min(330px, 42vw);
 }
 
+.ending-card.wide-card {
+  width: min(1080px, 100%);
+  display: grid;
+  gap: 12px;
+  padding-right: 24px;
+  overflow: auto;
+}
+
 .ending-card::after {
   content: none;
 }
@@ -1841,6 +1849,178 @@ img {
   height: auto;
   opacity: 0.72;
   pointer-events: none;
+}
+
+.ending-card.wide-card .ending-art {
+  z-index: 0;
+  width: min(260px, 30vw);
+  opacity: 0.18;
+}
+
+.ending-card.wide-card > *:not(.ending-art) {
+  position: relative;
+  z-index: 1;
+}
+
+.ending-card.destroyed,
+.ending-card.removed,
+.ending-card.decline {
+  border-color: rgba(232, 69, 69, 0.42);
+}
+
+.ending-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.ending-hero h2 {
+  margin-bottom: 8px;
+}
+
+.ending-badge-row,
+.ending-marker-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.ending-badge-row {
+  justify-content: flex-end;
+}
+
+.ending-badge-row span,
+.ending-marker-row span {
+  border: 1px solid rgba(158, 234, 255, 0.22);
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: rgba(8, 18, 22, 0.62);
+  color: var(--aura);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.final-audit-summary,
+.ending-checklist,
+.ending-metrics,
+.ending-list {
+  border: 1px solid rgba(255, 214, 154, 0.16);
+  border-radius: 4px;
+  padding: 10px;
+  background:
+    linear-gradient(180deg, rgba(10, 12, 14, 0.66), rgba(8, 10, 12, 0.86)),
+    url("/assets/generated/ui/hud-card.svg") center / cover;
+}
+
+.final-audit-summary b,
+.ending-checklist > b,
+.ending-metrics > b,
+.ending-list > b {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--warning);
+  font-size: 11px;
+}
+
+.final-audit-summary p,
+.ending-list p {
+  margin: 4px 0 0;
+}
+
+.ending-audit-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 1.1fr) minmax(260px, 0.9fr);
+  gap: 10px;
+}
+
+.ending-audit-grid.lower {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ending-checklist {
+  display: grid;
+  gap: 6px;
+}
+
+.audit-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 7px;
+  align-items: start;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 7px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.audit-row span,
+.audit-metric small {
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.audit-row span {
+  display: grid;
+  place-items: center;
+  min-height: 22px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.audit-row strong {
+  display: block;
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.audit-row p {
+  margin: 2px 0 0;
+  color: #d9c7ad;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.audit-row.pass span,
+.audit-metric.pass {
+  border-color: rgba(121, 214, 168, 0.38);
+  background: rgba(121, 214, 168, 0.11);
+}
+
+.audit-row.warn span,
+.audit-metric.warn {
+  border-color: rgba(255, 214, 10, 0.4);
+  background: rgba(255, 214, 10, 0.1);
+}
+
+.audit-row.fail span,
+.audit-metric.fail {
+  border-color: rgba(232, 69, 69, 0.44);
+  background: rgba(232, 69, 69, 0.12);
+}
+
+.ending-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.audit-metric {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 7px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.audit-metric strong {
+  color: var(--ink);
+  font-size: 12px;
 }
 
 .branch-summary-card {
@@ -2343,6 +2523,8 @@ img {
   .branch-options,
   .compare-grid,
   .insight-grid,
+  .ending-audit-grid,
+  .ending-audit-grid.lower,
   .benchmark-grid,
   .intro-dashboard {
     grid-template-columns: 1fr;
@@ -2366,5 +2548,25 @@ img {
 
   .modal-card {
     padding: 18px;
+  }
+
+  .ending-card.wide-card {
+    padding: 16px;
+  }
+
+  .ending-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .ending-badge-row {
+    justify-content: flex-start;
+  }
+
+  .ending-card.wide-card .ending-art {
+    display: none;
+  }
+
+  .ending-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

@@ -62,7 +62,19 @@ export type CampaignTrace = {
   replay_log: Record<string, unknown>[];
   frontend_trace?: CampaignReplayItem[];
   events?: CampaignEvent[];
-  ending?: { title?: string; text?: string; branch?: Branch; ending_key?: string; audit?: Record<string, unknown> };
+  ending?: {
+    title?: string;
+    text?: string;
+    branch?: Branch;
+    ending_key?: string;
+    audit?: Record<string, unknown>;
+    why_this_ending?: unknown;
+    evidence_chain?: unknown;
+    failure_debt?: unknown;
+    conditions?: unknown;
+    flags?: string[];
+    unlocks?: string[];
+  };
   branch_decision?: Record<string, unknown>;
   story_version?: string;
   story_flags?: string[];

@@ -21,7 +21,7 @@ const priorityLabels = {
   deferred: "暂缓警告"
 };
 
-const statusLabels: Partial<Record<TaskRunStatus | AgentRunState["currentPhase"], string>> = {
+const statusLabels: Record<string, string> = {
   locked: "Locked",
   queued: "Queued",
   thinking: "Thinking",
@@ -38,7 +38,10 @@ const statusLabels: Partial<Record<TaskRunStatus | AgentRunState["currentPhase"]
   idle: "Idle",
   day_summary: "Day Summary",
   branch_decision: "Route Fork",
-  ending: "Ending"
+  ending: "Ending",
+  story_event: "Story",
+  branch_scene: "Branch Scene",
+  final_audit: "Final Audit"
 };
 
 function latestActionForTask(entries: AgentTraceEntry[], task: RedDustTask | null) {

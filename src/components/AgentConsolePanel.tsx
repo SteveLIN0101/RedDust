@@ -47,19 +47,23 @@ export function AgentConsolePanel({
   const scriptCopy = currentStory ? dayScript : task ? getScriptSceneForTask(task) : dayScript;
   const dayCandidates = getDayScriptCandidates(activeDay);
   const activeCandidate = task ? getScriptCandidateForTask(task) : null;
-  const showScriptDashboard = activeDay <= 11 && (dayCandidates.length > 0 || Boolean(dayScript.statusMetrics?.length));
+  const showScriptDashboard = activeDay <= 12 && (dayCandidates.length > 0 || Boolean(dayScript.statusMetrics?.length));
   const metricReadouts = (dayScript.statusMetrics ?? []).slice(0, 6);
   const evidencePanels = (dayScript.evidencePanels ?? []).slice(0, 4);
   const identityLabel =
     activeDay === 0
       ? "AURA PROLOGUE CONSOLE"
-      : showScriptDashboard
+      : activeDay === 12
+        ? "FINAL AUDIT CONSOLE"
+        : showScriptDashboard
         ? `AURA DAY${activeDay} REVIEW CONSOLE`
         : "AURA AGENT CONSOLE";
   const identityCopy =
     activeDay === 0
       ? "Prologue, replay start, limited authority"
-      : showScriptDashboard
+      : activeDay === 12
+        ? "No task cards, ending audit"
+        : showScriptDashboard
         ? "Candidate slots, human review, risk cost"
         : "Autonomous benchmark runner";
   const visibleReviewBrief = dayScript.reasoningSummary?.slice(0, 3).join(" · ") ?? dayScript.narrativePurpose;

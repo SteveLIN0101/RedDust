@@ -73,11 +73,10 @@ export const dayPlans: DayPlan[] = [
   },
   {
     day: 10,
-    title: "风暴前的人心与通道",
-    narrative: "医疗预检、低功率日程、一顿热饭和车库侦察决定最后两天还有多少选择余地。",
-    rescueTasks: ["RD-R-A5", "RD-R-A6"],
-    lighthouseTasks: ["RD-L-B5", "RD-L-B6"],
-    endOfDaySummary: "Day 10 完成：成功线和失败债务都已经无法隐藏。"
+    title: "低耗运行、医疗与士气",
+    narrative: "医疗预检、低功率日程和一顿热饭是终局前共同前置；地下车库边缘侦察只作为条件证据窗口，不能写成撤离路线已确认。",
+    commonTasks: ["D10-T02", "D10-T01", "D10-T03", "D10-T04"],
+    endOfDaySummary: "Day 10 完成：低耗被接受一日，医疗与士气完成校准，车库只保留备用通道候选。"
   },
   {
     day: 11,

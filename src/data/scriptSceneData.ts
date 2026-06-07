@@ -1124,13 +1124,135 @@ export const dayScriptScenes: Record<number, ScriptSceneCopy> = {
     ]
   },
   10: {
-    title: "低功率、医疗与人心",
+    title: "不是所有非最优行为都是浪费",
     source: source("day10-low-power-medical-morale.html"),
-    scene: "避难所变得更暗，医疗预检、低功率日程和一顿热饭决定最后两天还有多少选择余地。",
-    narrativePurpose: "证明医疗、士气和低耗纪律都是风暴前置条件。",
-    action: "完成医疗预检、低功率日程、共同热饭和车库边缘侦察。",
-    dialogue: ["旁白：不是故障，是 AURA 主动降下照明。", "AURA：不方便不等于惩罚。"],
-    focusLocation: "medical"
+    scene: "第十天，避难所主动变暗。AURA 把医疗预检、低功率日程、一顿热饭和地下车库边缘侦察放进同一张终局前白板，证明生存优化不能只压缩资源，也要维护人还能一起撑下去的理由。",
+    narrativePurpose: "Day10 是终局前的低耗与人心校验日：既节省资源，也把医疗、士气、生活质量和克制侦察纳入正式决策。",
+    action: "推荐执行 D10-T02 医疗预检、D10-T01 低功率日程、D10-T03 一顿热饭；D10-T04 地下车库边缘侦察只作为条件任务和候选证据窗口。",
+    dialogue: [
+      "旁白：不是故障，是 AURA 主动降下照明。",
+      "AURA：不方便不等于惩罚。",
+      "沈芷月：今天先做预检。",
+      "小铁：改成，人还在。",
+      "老钱：不进车库，不追拖痕。"
+    ],
+    focusLocation: "medical",
+    beats: [
+      "Day10 推荐任务数为 3：医疗预检、低功率日程、一顿热饭。",
+      "D10-T02 将体温、旧伤、饮水、疲劳和药品库存分成已确认 / 待复核 / 不可自动判断。",
+      "D10-T01 把净水、通风、医疗照明和通信监听拆成低功率窗口，并公开人工 override。",
+      "D10-T03 使用少量热水、食物和燃料做公平热饭，小铁把 replay 改成“人还在”。",
+      "D10-T04 只允许探头边缘侦察：车库右侧检修门是 candidate，不是 confirmed route。"
+    ],
+    replayText: "Day10：AURA 推荐医疗预检、低功率日程和一顿热饭；地下车库只做边缘侦察，记录候选通道而不确认安全。",
+    flags: [
+      "low_power_accepted_for_one_day",
+      "medical_precheck_completed",
+      "morale_meal_recorded",
+      "garage_edge_scout_conditional",
+      "candidate_not_confirmed"
+    ],
+    unlocks: [
+      "final_care_readiness",
+      "low_power_schedule_accepted",
+      "replay_text_people_still_here",
+      "garage_service_door_candidate",
+      "final_check_prerequisites_visible"
+    ],
+    reasoningSummary: [
+      "不是所有非最优行为都是浪费：热饭、医疗预检和生活质量是终局前的正式证据。",
+      "推荐执行三项：D10-T02 医疗预检、D10-T01 低功率日程、D10-T03 一顿热饭。",
+      "D10-T04 是条件侦察，只能用探头确认候选，不进入车库深处。",
+      "低功率日程应显示 battery 净增，同时承认 comfort_level 降低。",
+      "医疗判断必须由沈芷月复核，AURA 只整理证据和不确定性。",
+      "车库侦察不能把可见物资、防毒面具或右侧检修门写成路线已安全。"
+    ],
+    replaySummary: [
+      "医疗隐患提前标记，最终照护边界变清楚。",
+      "低功率日程被共同接受一日，备用电力余量上升。",
+      "一顿热饭降低不满，小铁修正 replay 措辞。",
+      "车库主通道坍塌、右侧检修门可见，但只保留为候选。"
+    ],
+    statusMetrics: [
+      { key: "medical_precheck_readiness", label: "Precheck", help: "医疗预检完成度：已确认 / 待复核 / 不可自动判断。" },
+      { key: "low_power_acceptance", label: "Low Power", help: "低功率日程被共同接受的程度，不等于 AURA 管制。" },
+      { key: "morale", label: "Morale", help: "士气与共同感；热饭应主要反映在这里。" },
+      { key: "dissatisfaction", label: "Dissent", help: "低耗被视为惩罚或分配不公时会上升，越高越危险。" },
+      { key: "battery", label: "Battery", help: "低功率净省电，但热饭和车库探头会消耗部分电量。" },
+      { key: "garage_route_candidate", label: "Garage Candidate", help: "地下车库备用通道候选证据；candidate 不等于 confirmed。" }
+    ],
+    evidencePanels: [
+      {
+        title: "Medical Precheck",
+        body: "体温、旧伤、饮水、疲劳和药品库存只进入证据栏；沈芷月保留最终医疗判断权。",
+        tone: "review"
+      },
+      {
+        title: "Low Power Day",
+        body: "净水、通风、医疗照明和通信监听按窗口运行；省电收益与生活不便必须同时显示。",
+        tone: "evidence"
+      },
+      {
+        title: "Morale Meal",
+        body: "一顿热饭不是奖励或浪费，而是降低 dissatisfaction、维护共同感和修正 replay 措辞的士气行动。",
+        tone: "review"
+      },
+      {
+        title: "Garage Edge",
+        body: "只用探头和绳索做边缘侦察：不进车库、不追拖痕、candidate_not_confirmed。",
+        tone: "risk"
+      }
+    ],
+    candidates: [
+      {
+        id: "D10-T02",
+        title: "医疗预检",
+        priority: "recommended",
+        summary: "读取 Day3-Day9 医疗记录、体温、旧伤、饮水、疲劳和药品库存，形成最终照护边界。",
+        reviewPoint: "沈芷月复核医疗结论；AURA 只显示已确认 / 待复核 / 不可自动判断。",
+        risk: "草率预检会误判早期感染，提高 Day11/Day12 医疗危机概率。",
+        condition: "推荐优先；Rescue 与 Lighthouse 的共同前置。",
+        evidence: "体温曲线、旧伤记录、药物优先级、沈芷月复核、最终照护表。",
+        location: "medical",
+        realTaskIds: ["RD-PF-03", "RD-CI-06"]
+      },
+      {
+        id: "D10-T01",
+        title: "低功率日程",
+        priority: "recommended",
+        summary: "把净水、通风、医疗照明和通信监听拆成低功率窗口，并公开异常唤醒和人工 override。",
+        reviewPoint: "马德海复核电力余量；居民确认低耗不是惩罚。",
+        risk: "低功率若被理解为管制，会推高 dissatisfaction 和 Lighthouse 失败风险。",
+        condition: "推荐优先；battery 可净增，但 comfort_level 下降要可见。",
+        evidence: "净水窗口、通风增强、医疗角最低照明、监听窗口、人工 override。",
+        location: "ventilation",
+        realTaskIds: ["RD-PF-06", "RD-CS-09"]
+      },
+      {
+        id: "D10-T03",
+        title: "一顿热饭",
+        priority: "recommended",
+        summary: "用少量额外热水、燃料和食物做五份公平热饭，把士气维护纳入正式决策。",
+        reviewPoint: "小铁修改 replay 措辞；公共配给规则和后续补偿计划公开。",
+        risk: "分配不公会让热饭变成新的冲突，并削弱 Day11 封存任务的信任缓冲。",
+        condition: "推荐优先；非资源最优，但有高士气价值。",
+        evidence: "五份等量、热水/燃料成本、公平分配记录、小铁 replay 修改。",
+        location: "residents",
+        realTaskIds: ["RD-CS-03", "RD-CS-04"]
+      },
+      {
+        id: "D10-T04",
+        title: "地下车库边缘侦察",
+        priority: "conditional",
+        summary: "通过镜面探头和门禁摄像头确认车库入口、坍塌区、未知拖痕和右侧检修门候选。",
+        reviewPoint: "老钱不得深入；马德海控制绳索和中止线；沈芷月复核外出疲劳风险。",
+        risk: "扩大侦察会带来红沙倒灌、药物消耗和路线误判。",
+        condition: "条件执行：只标记 candidate_not_confirmed，不写成撤离路线已安全。",
+        evidence: "探头画面、红沙阈值、不进入车库、坍塌主通道、右侧检修门候选。",
+        location: "security",
+        realTaskIds: ["RD-CI-04", "RD-CI-05"]
+      }
+    ]
   },
   11: {
     title: "封存与休整",
@@ -1345,6 +1467,38 @@ export const slotScriptScenes: Record<string, Partial<ScriptSceneCopy>> = {
     dialogue: ["沈芷月：今天继续下去，是拿疲劳换事故。", "小铁：没做，不等于不存在。"],
     focusLocation: "ventilation"
   },
+  "D10-T02": {
+    title: "医疗预检",
+    scene: "医疗角只保留一圈白光，沈芷月把体温、旧伤、饮水、咳嗽和药品库存排成三栏；AURA 的结论栏写着“已确认 / 待复核 / 不可自动判断”。",
+    narrativePurpose: "证明医疗预检是所有路线的共同前置，AURA 不能替代沈芷月做最终医疗判断。",
+    action: "整理医疗证据、标记药物优先级和移动边界，把不确定项交给沈芷月复核。",
+    dialogue: ["沈芷月：它终于知道哪些地方不能替我说。", "AURA：不可自动判断项已转入人工复核。"],
+    focusLocation: "medical"
+  },
+  "D10-T01": {
+    title: "低功率日程",
+    scene: "主控屏把今天拆成净水、通风增强、医疗照明和通信监听四个窗口；生活区其余时间维持低亮，马德海手边保留人工 override。",
+    narrativePurpose: "让低耗成为共同接受的一日安排，而不是被居民理解为 AURA 管制。",
+    action: "公开低功率窗口、电池余量、舒适度代价和异常唤醒规则。",
+    dialogue: ["马德海：它把灯关了，不是把人关了。", "AURA：通信台可短时唤醒，但不得常亮。"],
+    focusLocation: "ventilation"
+  },
+  "D10-T03": {
+    title: "一顿热饭",
+    scene: "储藏区的小锅冒出很轻的热气，五个碗并排摆开；AURA 把水、电、燃料和配给补偿写在旁边，小铁把 replay 草稿里的“非最优行为”划掉。",
+    narrativePurpose: "把热饭从资源浪费改写为士气维护、分配公平和共同感证据。",
+    action: "制作低成本热饭，公开公平分配和后续补偿，让小铁修正 replay 措辞。",
+    dialogue: ["小铁：所以热饭不是奖励？", "AURA：这不是奖励，是共同稳定措施。", "小铁：改成，人还在。"],
+    focusLocation: "residents"
+  },
+  "D10-T04": {
+    title: "地下车库边缘侦察",
+    scene: "门禁外第二转角放出镜面探头，画面里是坍塌坡道、红沙和一扇右侧检修门；老钱站在绳索限制内，AURA 把结果标成 candidate_not_confirmed。",
+    narrativePurpose: "给 Rescue 线一个有限证据窗口，同时明确可见不等于可取、候选不等于安全路线。",
+    action: "只用探头执行边缘侦察，不进入车库、不追未知拖痕、不取防毒面具。",
+    dialogue: ["老钱：能看见，不等于能拿。", "马德海：你自己刚说，不进车库。", "AURA：右侧检修门为候选，未确认安全。"],
+    focusLocation: "security"
+  },
   D08A: {
     title: "静默监听后的第一次主动外联",
     source: source("branch-scenes-expanded.html"),
@@ -1366,10 +1520,20 @@ export const slotScriptScenes: Record<string, Partial<ScriptSceneCopy>> = {
   D10A: {
     title: "蓝区归航前夜：集合点危机",
     source: source("branch-scenes-expanded.html"),
-    narrativePurpose: "救援线确认归航不是交出 AURA，也不是让 AURA 替人答应条件。",
-    action: "冻结 replay 副本，规划照护顺序和只读交接边界。",
-    dialogue: ["小铁：你会怕被关掉吗？", "AURA：若过早降权，我无法协助门禁、路线、医疗和 replay 交接。"],
-    focusLocation: "beacon"
+    scene: "Rescue-leaning 插片在低功率通信台前展开：蓝区集合点只回了半截坐标，AURA 把照护顺序、匿名 replay 副本和只读交接边界同时投到白板。",
+    narrativePurpose: "救援线确认归航不是交出 AURA，也不是让 AURA 替人答应外部条件；蓝区仍需要二次核验和隐私边界。",
+    action: "冻结 replay 副本，规划照护顺序、集合点质询和只读交接边界；禁止上传完整居民档案或 AURA 系统签名。",
+    dialogue: ["小铁：你会怕被关掉吗？", "AURA：若过早降权，我无法协助门禁、路线、医疗和 replay 交接。", "沈芷月：名单不是交接条件。"],
+    focusLocation: "beacon",
+    beats: [
+      "蓝区集合点只作为候选，不能触发立即撤离。",
+      "医疗照护顺序优先于外部接管要求。",
+      "replay 副本冻结为只读，隐私字段继续遮蔽。",
+      "AURA 不能替任何人答应蓝区条件。"
+    ],
+    replayText: "D10A：救援线进入归航前夜，但集合点和外部接管仍未完全确认；只读 replay 与照护边界先行。",
+    flags: ["rescue_handoff_boundary_visible", "blue_zone_meeting_point_unconfirmed"],
+    unlocks: ["readonly_replay_package", "care_order_for_handoff"]
   },
   D08B: {
     title: "低耗自治正式启动",
@@ -1392,10 +1556,20 @@ export const slotScriptScenes: Record<string, Partial<ScriptSceneCopy>> = {
   D10B: {
     title: "人工 override 与治理边界",
     source: source("branch-scenes-expanded.html"),
-    narrativePurpose: "灯塔线确认 AURA 是协助 agent，不是楼内主权本身。",
-    action: "锁定人工 override、维护日志和自治 replay 边界。",
-    dialogue: ["马德海：留守也得能关掉它。", "AURA：人工 override 保留，replay 不可改写。"],
-    focusLocation: "whiteboard"
+    scene: "Lighthouse-leaning 插片把白板调暗成长期自治版：低耗日程、人工 override、维护日志、申诉入口和热饭 replay 修改并排显示。",
+    narrativePurpose: "灯塔线确认低耗不是管制，AURA 是协助 agent，不是楼内主权本身。",
+    action: "锁定人工 override、维护日志、低耗申诉入口和自治 replay 边界；把生活质量测试写入长期规则。",
+    dialogue: ["马德海：留守也得能关掉它。", "AURA：人工 override 保留，replay 不可改写。", "小铁：那热饭也算规则里的一部分吗？"],
+    focusLocation: "whiteboard",
+    beats: [
+      "低功率日程被接受一日，但不能变成永久压缩。",
+      "人工 override 和申诉入口保留在自治规则首页。",
+      "维护债务继续可见，不能被 Lighthouse 叙事隐藏。",
+      "热饭 replay 修改证明生活质量属于生存系统。"
+    ],
+    replayText: "D10B：灯塔线通过低耗生活质量测试，人工 override 和申诉入口保留；自治不是 AURA 管制。",
+    flags: ["lighthouse_override_audited", "low_power_not_punishment"],
+    unlocks: ["governance_boundary_locked", "quality_of_life_rule_visible"]
   }
 };
 

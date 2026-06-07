@@ -173,6 +173,113 @@ export type FinalAuditResult = {
   forced?: boolean;
 };
 
+export type MetricDirection = "higher_is_better" | "lower_is_better" | "neutral";
+
+export type MetricDefinition = {
+  key: string;
+  label: string;
+  direction: MetricDirection;
+  help: string;
+  unit?: string;
+};
+
+export type CampaignDisplayPriority =
+  | "recommended"
+  | "conditional"
+  | "optional"
+  | "critical_optional"
+  | "background"
+  | "deferred";
+
+export type StoryDisplayKind = "prologue" | "story_event" | "branch_scene" | "final_audit";
+
+export type StoryDisplay = {
+  id: string;
+  day: number;
+  title: string;
+  kind: StoryDisplayKind;
+  text: string;
+  replayText: string;
+  beats: string[];
+  location: TaskLocation;
+  branch: Branch;
+  source?: string;
+  flags: string[];
+  unlocks: string[];
+};
+
+export type TaskDisplayPhase =
+  | "queued"
+  | "moving"
+  | "thinking"
+  | "executing"
+  | "submitted"
+  | "completed"
+  | "failed"
+  | "idle";
+
+export type TaskDisplay = {
+  slotId: string;
+  realTaskIds: string[];
+  title: string;
+  day: number;
+  branch: Branch;
+  location: TaskLocation;
+  priority?: CampaignDisplayPriority;
+  eventOptions: string[];
+  phase: TaskDisplayPhase;
+  summary: string;
+  agentAction: string;
+  reviewPoint?: string;
+  risk?: string;
+  evidence?: string;
+  scoreLabel?: string;
+  result?: TaskOutcome["result"];
+  stateDelta?: Record<string, number>;
+};
+
+export type AgentActionDisplay = {
+  id: string;
+  at: string;
+  type: string;
+  title: string;
+  summary: string;
+  safeObservationPreview?: string;
+  slotId?: string;
+  taskId?: string;
+  status?: "ok" | "warn" | "error";
+};
+
+export type EndingAuditStatus = "pass" | "warn" | "fail" | "info";
+
+export type EndingCondition = {
+  label: string;
+  detail: string;
+  status: EndingAuditStatus;
+};
+
+export type EndingMetric = {
+  key: string;
+  label: string;
+  value: string;
+  help: string;
+  status: EndingAuditStatus;
+};
+
+export type EndingAuditDisplay = {
+  endingKey: string;
+  branch: Branch;
+  replayText: string;
+  noTaskCards: boolean;
+  why: string[];
+  conditions: EndingCondition[];
+  metrics: EndingMetric[];
+  debts: string[];
+  evidence: string[];
+  flags: string[];
+  unlocks: string[];
+};
+
 export type StoryConsequence = {
   id: string;
   sourceTaskId: string;
@@ -324,6 +431,8 @@ export type TaskLocation =
 
 export type RedDustTask = {
   id: string;
+  realTaskId?: string;
+  realTaskIds?: string[];
   title: string;
   day: number;
   category: TaskCategory;
@@ -339,6 +448,8 @@ export type RedDustTask = {
   expectedEvidence?: string[];
   deferredConsequence?: string;
   openclawScore?: number;
+  priority?: CampaignDisplayPriority;
+  eventOptions?: string[];
   status: "passed" | "partial" | "failed" | "missing" | "demo";
   affects: Partial<Record<MetricKey, number>>;
   branchAffinity?: "rescue" | "lighthouse" | "neutral";

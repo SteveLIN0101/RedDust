@@ -2264,6 +2264,111 @@ img {
   gap: 4px;
 }
 
+.live-status-panel {
+  border-left: 4px solid rgba(121, 214, 168, 0.56);
+}
+
+.campaign-modal-shell {
+  background:
+    linear-gradient(180deg, rgba(5, 6, 8, 0.68), rgba(5, 6, 8, 0.86)),
+    url("/assets/generated/ui/hud-card.svg") center / cover;
+}
+
+.campaign-link-modal,
+.campaign-story-modal {
+  width: min(720px, calc(100vw - 28px));
+}
+
+.campaign-link-modal .prompt-block {
+  display: grid;
+  gap: 8px;
+}
+
+.campaign-link-modal textarea,
+.campaign-input-row input {
+  width: 100%;
+  border: 1px solid rgba(255, 214, 154, 0.16);
+  border-radius: 4px;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.34);
+}
+
+.campaign-link-modal textarea {
+  min-height: 220px;
+  resize: vertical;
+  padding: 10px;
+  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.campaign-input-row {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.campaign-input-row span {
+  color: var(--aura);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.campaign-input-row input {
+  height: 42px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.campaign-input-row input:focus,
+.campaign-link-modal textarea:focus {
+  outline: 2px solid rgba(158, 234, 255, 0.34);
+  outline-offset: 2px;
+}
+
+.campaign-story-modal {
+  border-left: 4px solid rgba(255, 214, 10, 0.72);
+}
+
+.campaign-story-modal.prologue {
+  border-left-color: rgba(158, 234, 255, 0.68);
+}
+
+.campaign-story-modal.final-audit {
+  border-left-color: rgba(232, 69, 69, 0.66);
+}
+
+.campaign-story-beats {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.campaign-story-beats li {
+  border: 1px solid rgba(255, 214, 154, 0.14);
+  border-radius: 4px;
+  padding: 9px 10px;
+  color: #ead7b7;
+  background: rgba(8, 10, 12, 0.48);
+}
+
+.campaign-story-markers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.campaign-story-markers span {
+  border: 1px solid rgba(158, 234, 255, 0.18);
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: var(--aura);
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .task-lifecycle-toast.started {
   border-color: rgba(143, 234, 255, 0.62);
 }

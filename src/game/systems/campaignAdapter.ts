@@ -43,8 +43,24 @@ type NormalizedEvent = {
   result?: TaskOutcome;
   replayEvent?: ReplayEvent;
   endingAudit?: EndingAuditDisplay;
+  connectionNotice?: CampaignConnectionNotice;
   state?: GlobalState;
   metricDefinitions: Record<string, MetricDefinition>;
+};
+
+export type CampaignConnectionNotice = {
+  kind: "prompt" | "connected" | "started";
+  title: string;
+  summary: string;
+  campaignId: string;
+  status?: string;
+  prompt?: string;
+};
+
+export type CampaignReplayLocator = {
+  apiBase: string;
+  campaignId?: string;
+  traceUrl?: string;
 };
 
 const categoryFallback: TaskCategory = "planning";
@@ -135,6 +151,69 @@ function eventDisplay(event: CampaignEvent) {
 
 function traceDisplay(item: CampaignReplayItem) {
   return displayFrom({ ...item, ...asRecord(item.replay_event) });
+}
+
+export function parseCampaignReplayLocator(input: string, fallbackApiBase: string): CampaignReplayLocator {
+  const value = input.trim();
+  if (!value) return { apiBase: fallbackApiBase };
+
+  try {
+    const url = new URL(value);
+    const apiBase = (url.searchParams.get("api") || fallbackApiBase).replace(/\/$/, "");
+    const traceUrl = url.searchParams.get("trace_url") ?? url.searchParams.get("trace");
+    const campaignId = url.searchParams.get("campaign_id") ?? url.searchParams.get("campaign") ?? url.searchParams.get("session_id");
+    if (traceUrl) return { apiBase, traceUrl };
+    if (campaignId) return { apiBase, campaignId };
+    if (/\/campaigns\/[^/]+\/trace\/?$/i.test(url.pathname)) return { apiBase, traceUrl: url.toString() };
+    return { apiBase, traceUrl: url.toString() };
+  } catch {
+    return { apiBase: fallbackApiBase, campaignId: value };
+  }
+}
+
+export function connectionNoticeFromCampaignState(state: CampaignState, prompt: string): CampaignConnectionNotice {
+  const campaignId = textValue(state.campaign_id, state.current_slot_id, "campaign") ?? "campaign";
+  if (state.connected_agent) {
+    return {
+      kind: "connected",
+      title: "Agent connected to Red Dust campaign",
+      summary: "The backend reports an active agent connection. Start Agent Run when you are ready.",
+      campaignId,
+      status: state.status,
+      prompt
+    };
+  }
+  return {
+    kind: "prompt",
+    title: "Agent Connection Prompt",
+    summary: "Share this prompt with the live agent, then wait for the connected event.",
+    campaignId,
+    status: state.status,
+    prompt
+  };
+}
+
+function connectionNoticeFromEvent(event: CampaignEvent): CampaignConnectionNotice | undefined {
+  if (event.type !== "agent_connected" && event.type !== "campaign_started") return undefined;
+  const display = eventDisplay(event);
+  const payload = event.payload;
+  const campaignId = textValue(display.campaign_id, payload.campaign_id, event.campaign_id) ?? event.campaign_id;
+  if (event.type === "agent_connected") {
+    return {
+      kind: "connected",
+      title: textValue(display.title, "Agent connected to Red Dust campaign") ?? "Agent connected to Red Dust campaign",
+      summary: textValue(display.summary, display.text, payload.summary, "The live agent connection is active. Start Agent Run when ready.") ?? "The live agent connection is active. Start Agent Run when ready.",
+      campaignId,
+      status: textValue(display.status, payload.status)
+    };
+  }
+  return {
+    kind: "started",
+    title: textValue(display.title, "Live campaign started") ?? "Live campaign started",
+    summary: textValue(display.summary, display.text, payload.summary, "The frontend released the campaign. Follow backend task events from here.") ?? "The frontend released the campaign. Follow backend task events from here.",
+    campaignId,
+    status: textValue(display.status, payload.status)
+  };
 }
 
 function stateValue(raw: Record<string, unknown>, key: string, camelKey?: string) {
@@ -543,6 +622,7 @@ export function normalizeCampaignEvent(event: CampaignEvent, previousState: Glob
   const state = event.type === "day_changed" || event.type === "branch_changed" || event.type === "campaign_complete" || payload.display_state || payload.global_state
     ? campaignStateToGlobalState(payload, previousState)
     : undefined;
+  const connectionNotice = connectionNoticeFromEvent(event);
 
   if (event.type === "story_event" || event.type === "branch_scene" || event.type === "final_audit") {
     const nested = asRecord(payload.story_event ?? payload.branch_scene ?? payload.final_audit);
@@ -560,7 +640,7 @@ export function normalizeCampaignEvent(event: CampaignEvent, previousState: Glob
     const slot = asRecord(payload.slot);
     const run = asRecord(payload.run);
     const task = normalizeTaskDisplay(display, [slot, run, payload], "queued", previousTask);
-    return { type: event.type, task, state, metricDefinitions };
+    return { type: event.type, task, state, metricDefinitions, connectionNotice };
   }
 
   if (event.type === "action_executed" || event.type === "task_submitted") {
@@ -568,7 +648,7 @@ export function normalizeCampaignEvent(event: CampaignEvent, previousState: Glob
     const task = display.slot_id || payload.slot_id
       ? normalizeTaskDisplay(display, [payload, asRecord(payload.slot), asRecord(payload.run)], event.type === "task_submitted" ? "submitted" : previousTask?.phase ?? "executing", previousTask)
       : undefined;
-    return { type: event.type, action, task, state, metricDefinitions };
+    return { type: event.type, action, task, state, metricDefinitions, connectionNotice };
   }
 
   if (event.type === "slot_completed") {
@@ -601,7 +681,7 @@ export function normalizeCampaignEvent(event: CampaignEvent, previousState: Glob
     };
   }
 
-  return { type: event.type, action: normalizeAgentActionDisplay(event), state, metricDefinitions };
+  return { type: event.type, action: normalizeAgentActionDisplay(event), state, metricDefinitions, connectionNotice };
 }
 
 export function isCampaignStoryItem(item: CampaignReplayItem) {

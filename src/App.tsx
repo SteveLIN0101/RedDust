@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AgentConsolePanel } from "./components/AgentConsolePanel";
 import { AgentControlBar } from "./components/AgentControlBar";
 import { AgentTracePanel } from "./components/AgentTracePanel";
@@ -67,12 +67,14 @@ import {
 import {
   buildAgentPrompt,
   campaignStateToGlobalState,
+  connectionNoticeFromCampaignState,
   frontendTaskToRedDustTask,
   isCampaignStoryItem,
   normalizeCampaignEvent,
   normalizeCampaignTrace,
   normalizeEndingAudit,
   normalizeMetricDefinitions,
+  parseCampaignReplayLocator,
   replayEventFromStoryDisplay,
   replayEventFromTaskDisplay
 } from "./game/systems/campaignAdapter";
@@ -80,7 +82,21 @@ import { resolveTaskOutcome } from "./game/systems/outcomeEngine";
 import { createReplayEvent } from "./game/systems/replayEngine";
 
 type Screen = "intro" | "game";
-type Overlay = "benchmark" | "replay" | "credits" | "branchDecision" | "ending" | "compare" | "storyScene" | "dayBriefing" | "finalAudit" | null;
+type Overlay =
+  | "benchmark"
+  | "replay"
+  | "credits"
+  | "branchDecision"
+  | "ending"
+  | "compare"
+  | "storyScene"
+  | "dayBriefing"
+  | "finalAudit"
+  | "agentPrompt"
+  | "agentConnected"
+  | "campaignStory"
+  | "replayInput"
+  | null;
 type RunSource = "demo" | "live" | "replay";
 type DailyBriefingMode = "tasks" | "finalAudit";
 type DailyBriefing = {
@@ -104,6 +120,13 @@ type CampaignReplayState = {
   items: CampaignReplayItem[];
   index: number;
   error?: string;
+};
+
+type ReplayLoadOptions = {
+  apiBase?: string;
+  campaignId?: string;
+  traceUrl?: string;
+  locator?: string;
 };
 
 type Snapshot = {
@@ -402,17 +425,20 @@ export default function App() {
   const [taskNotice, setTaskNotice] = useState<TaskLifecycleNotice | null>(null);
   const [endingAuditDisplay, setEndingAuditDisplay] = useState<EndingAuditDisplay | null>(null);
   const [metricDefinitions, setMetricDefinitions] = useState<Record<string, MetricDefinition>>(fallbackMetricDefinitions);
+  const [replayInput, setReplayInput] = useState("");
+  const [replayApiBaseInput, setReplayApiBaseInput] = useState(() => defaultCampaignApiBase());
+  const [replayLoading, setReplayLoading] = useState(false);
   const [phaseToken, setPhaseToken] = useState(0);
   const campaignClientRef = useRef(new CampaignClient(defaultCampaignApiBase()));
   const daySevenSnapshot = useRef<Snapshot | null>(null);
   const stateRef = useRef(state);
   const taskDisplayRef = useRef<TaskDisplay | null>(null);
   const taskNoticeSeq = useRef(0);
+  const liveConnectedNoticeShown = useRef(false);
 
   const remoteTask = useMemo(() => (taskDisplay ? frontendTaskToRedDustTask(taskDisplay) : null), [taskDisplay]);
   const currentTask = remoteTask ?? (runState.currentTaskId ? tasksById[runState.currentTaskId] ?? null : null);
   const currentStoryScene = runState.currentStorySceneId ? storyScenesById[runState.currentStorySceneId] ?? null : null;
-  const livePromptExpanded = runSource === "live" && campaignConnection !== null && !campaignConnection.connected && !runState.isRunning && !taskDisplay;
   const selectedTask = useMemo(() => {
     if (!selectedLocation) return null;
     return (
@@ -504,7 +530,13 @@ export default function App() {
       void createLiveCampaign();
     }
     if (runSource === "replay" && !campaignReplay.trace && !campaignReplay.error) {
-      void loadCampaignReplay();
+      const params = new URLSearchParams(window.location.search);
+      const hasReplaySource = Boolean(params.get("trace_url") ?? params.get("trace") ?? params.get("campaign_id") ?? params.get("campaign"));
+      if (hasReplaySource) {
+        void loadCampaignReplay();
+      } else {
+        openReplayInput();
+      }
     }
   }, [runSource]);
 
@@ -526,6 +558,11 @@ export default function App() {
               }
             : prev
         );
+        if (response.state.connected_agent && !liveConnectedNoticeShown.current) {
+          liveConnectedNoticeShown.current = true;
+          setOverlay("agentConnected");
+          setNotice("Agent connected to Red Dust campaign.");
+        }
         setMetricDefinitions((prev) => ({ ...prev, ...normalizeMetricDefinitions(response.state.metric_definitions) }));
         if (response.state) {
           const next = campaignStateToGlobalState(response.state, stateRef.current);
@@ -657,6 +694,25 @@ export default function App() {
     if (normalized.action) {
       setAgentTrace((prev) => [...prev, normalized.action!].slice(-80));
     }
+    if (normalized.connectionNotice) {
+      if (normalized.connectionNotice.kind === "connected") {
+        liveConnectedNoticeShown.current = true;
+        setCampaignConnection((prev) =>
+          prev
+            ? {
+                ...prev,
+                connected: true,
+                status: normalized.connectionNotice?.status ?? prev.status,
+                error: undefined
+              }
+            : prev
+        );
+        setOverlay("agentConnected");
+      } else if (normalized.connectionNotice.kind === "started") {
+        setOverlay((current) => (current === "agentPrompt" ? null : current));
+      }
+      setNotice(normalized.connectionNotice.summary);
+    }
     if (normalized.story) {
       setCurrentStoryDisplay(normalized.story);
       setTaskDisplay(null);
@@ -675,6 +731,8 @@ export default function App() {
       if (normalized.story.kind === "final_audit") {
         const audit = normalizeEndingAudit({ ...event.payload, display: event.payload.display }, normalized.state ?? stateRef.current, normalized.metricDefinitions, nextCampaignState);
         applyFinalAudit(audit, normalized.state ?? stateRef.current);
+      } else if (runSource !== "demo") {
+        setOverlay("campaignStory");
       }
       return;
     }
@@ -711,6 +769,7 @@ export default function App() {
     setCurrentStoryDisplay(null);
     setAgentTrace([]);
     setEndingAuditDisplay(null);
+    liveConnectedNoticeShown.current = false;
     const params = new URLSearchParams(window.location.search);
     const campaignIdParam = params.get("campaign_id") ?? params.get("campaign");
     try {
@@ -718,14 +777,17 @@ export default function App() {
         ? await client.getState(campaignIdParam)
         : await client.createCampaign({ story_version: campaignStoryVersion, source: "reddust_frontend", wait_for_start: true });
       const campaignId = campaign.campaign_id;
+      const prompt = buildAgentPrompt(apiBase, campaignId);
       setCampaignConnection({
         apiBase,
         campaignId,
-        prompt: buildAgentPrompt(apiBase, campaignId),
+        prompt,
         connected: Boolean(campaign.connected_agent),
         latestSeq: campaign.latest_event_seq ?? 0,
         status: campaign.status
       });
+      const connectionNotice = connectionNoticeFromCampaignState(campaign, prompt);
+      liveConnectedNoticeShown.current = connectionNotice.kind === "connected";
       setMetricDefinitions((prev) => ({ ...prev, ...normalizeMetricDefinitions(campaign.metric_definitions) }));
       setState((prev) => campaignStateToGlobalState(campaign, prev));
       setRunState((prev) => ({
@@ -738,8 +800,10 @@ export default function App() {
         isRunning: false,
         isPaused: true
       }));
-      setNotice(campaign.connected_agent ? "Live campaign loaded. Start Agent Run when ready." : "Live campaign ready. Connection prompt is visible.");
+      setOverlay(connectionNotice.kind === "connected" ? "agentConnected" : "agentPrompt");
+      setNotice(connectionNotice.summary);
     } catch (error) {
+      liveConnectedNoticeShown.current = false;
       setCampaignConnection({
         apiBase,
         campaignId: campaignIdParam ?? "pending",
@@ -753,28 +817,66 @@ export default function App() {
     }
   }
 
-  async function loadCampaignReplay() {
-    const apiBase = defaultCampaignApiBase();
+  function openReplayInput(prefill = replayInput) {
+    setRunSource("replay");
+    setScreen("game");
+    setOverlay("replayInput");
+    setRunState((prev) => ({ ...createInitialRunState(prev.speed), isRunning: false, isPaused: true }));
+    setState(createInitialState());
+    setCampaignConnection(null);
+    setCampaignReplay({ trace: null, items: [], index: -1 });
+    setTaskDisplay(null);
+    setCurrentStoryDisplay(null);
+    setTaskNotice(null);
+    setLatestOutcome(null);
+    setLatestOutcomeTaskTitle(undefined);
+    setEnding(null);
+    setEndingAuditDisplay(null);
+    setBranchDecision(null);
+    setBranchSummaries({});
+    setReplayInput(prefill);
+    setReplayApiBaseInput(defaultCampaignApiBase());
+    EventBus.emit("task:highlight", null);
+    setNotice("Replay Trace Mode needs a campaign id or trace URL before playback.");
+  }
+
+  async function loadCampaignReplay(options: ReplayLoadOptions = {}) {
+    const params = new URLSearchParams(window.location.search);
+    const fallbackApiBase = options.apiBase ?? defaultCampaignApiBase();
+    const locatorValue = options.locator ?? params.get("trace_url") ?? params.get("trace") ?? params.get("campaign_id") ?? params.get("campaign") ?? "";
+    const locator = parseCampaignReplayLocator(locatorValue, fallbackApiBase);
+    const apiBase = locator.apiBase;
+    const traceUrl = options.traceUrl ?? locator.traceUrl;
+    const campaignId = options.campaignId ?? locator.campaignId;
+    if (!traceUrl && !campaignId) {
+      openReplayInput(locatorValue);
+      return;
+    }
     const client = new CampaignClient(apiBase);
     campaignClientRef.current = client;
     setRunSource("replay");
     setScreen("game");
     setOverlay(null);
     setNotice("Loading campaign trace...");
-    const params = new URLSearchParams(window.location.search);
-    const traceUrl = params.get("trace_url") ?? params.get("trace");
-    const campaignId = params.get("campaign_id") ?? params.get("campaign");
+    setReplayLoading(true);
     try {
-      const trace = traceUrl ? await client.getTraceUrl(traceUrl) : campaignId ? await client.getTrace(campaignId) : null;
-      if (!trace) throw new Error("Replay mode requires trace_url or campaign_id.");
+      const trace = traceUrl ? await client.getTraceUrl(traceUrl) : await client.getTrace(campaignId ?? "");
       setCampaignReplay({ trace, items: trace.frontend_trace ?? [], index: -1 });
       setMetricDefinitions((prev) => ({ ...prev, ...normalizeMetricDefinitions(trace.metric_definitions) }));
       setState((prev) => campaignStateToGlobalState(trace, prev));
       setNotice(`Replay loaded for ${trace.campaign_id}. Press Start Agent Run or Step.`);
     } catch (error) {
       setCampaignReplay({ trace: null, items: [], index: -1, error: error instanceof Error ? error.message : String(error) });
+      setOverlay("replayInput");
       setNotice("Replay trace could not be loaded.");
+    } finally {
+      setReplayLoading(false);
     }
+  }
+
+  function submitReplayInput(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void loadCampaignReplay({ apiBase: replayApiBaseInput, locator: replayInput });
   }
 
   function stepCampaignReplay(delta: 1 | -1 = 1) {
@@ -793,6 +895,12 @@ export default function App() {
     if (normalized.currentStory) {
       EventBus.emit("task:highlight", null);
       setNotice(`${normalized.currentStory.title}: ${normalized.currentStory.replayText}`);
+      if (normalized.currentStory.kind === "final_audit") {
+        const audit = normalizeEndingAudit(campaignReplay.trace.ending ?? campaignReplay.trace, normalized.state, normalized.metricDefinitions, campaignReplay.trace);
+        applyFinalAudit(audit, normalized.state);
+        return;
+      }
+      setOverlay("campaignStory");
     } else if (normalized.currentTask) {
       emitTaskStart(normalized.currentTask);
       if (!isCampaignStoryItem(item)) {
@@ -832,6 +940,7 @@ export default function App() {
     setCurrentStoryDisplay(null);
     setAgentTrace([]);
     setEndingAuditDisplay(null);
+    liveConnectedNoticeShown.current = false;
     setNotice("AURA Agent Console loaded. Start Agent Run to watch the benchmark autoplay.");
   }
 
@@ -1052,6 +1161,7 @@ export default function App() {
           setCampaignConnection((prev) => (prev ? { ...prev, status: campaign.status, connected: Boolean(campaign.connected_agent), error: undefined } : prev));
           setState((prev) => campaignStateToGlobalState(campaign, prev));
           setRunState((prev) => ({ ...prev, isRunning: true, isPaused: false, currentPhase: "idle" }));
+          setOverlay((current) => (current === "agentPrompt" || current === "agentConnected" ? null : current));
           setNotice("Live campaign started. Waiting for backend task_started/action events.");
         })
         .catch((error) => {
@@ -1061,6 +1171,10 @@ export default function App() {
       return;
     }
     if (runSource === "replay") {
+      if (!campaignReplay.trace) {
+        openReplayInput();
+        return;
+      }
       setRunState((prev) => ({ ...prev, isRunning: true, isPaused: false }));
       if (campaignReplay.index < 0) {
         window.setTimeout(() => stepCampaignReplay(1), 0);
@@ -1092,6 +1206,26 @@ export default function App() {
     showOpeningScene("both_branches", true);
   }
 
+  function handleRunBothBranches() {
+    if (runSource === "replay") {
+      setNotice("Replay Trace Mode follows a fixed recorded campaign. Run Both Branches is available in Demo Mode.");
+      return;
+    }
+    if (runSource === "live") {
+      setNotice("Live Agent Mode follows backend campaign policy. Branch comparison remains a Demo Mode control.");
+      return;
+    }
+    runBothBranches();
+  }
+
+  function handleResetRun() {
+    if (runSource === "replay") {
+      openReplayInput();
+      return;
+    }
+    resetRun();
+  }
+
   function togglePause() {
     setRunState((prev) => ({ ...prev, isPaused: !prev.isPaused, isRunning: true }));
   }
@@ -1103,6 +1237,10 @@ export default function App() {
   function stepAgent() {
     setScreen("game");
     if (runSource === "replay") {
+      if (!campaignReplay.trace) {
+        openReplayInput();
+        return;
+      }
       setRunState((prev) => ({ ...prev, isRunning: true, isPaused: true }));
       stepCampaignReplay(1);
       return;
@@ -1595,7 +1733,7 @@ export default function App() {
           <button className="ghost" onClick={createLiveCampaign}>
             Live Campaign
           </button>
-          <button className="ghost" onClick={loadCampaignReplay}>
+          <button className="ghost" onClick={() => openReplayInput()}>
             Replay Trace
           </button>
           <button className="ghost" onClick={() => setOverlay("benchmark")}>
@@ -1650,8 +1788,8 @@ export default function App() {
         onPause={togglePause}
         onStep={stepAgent}
         onSpeed={setSpeed}
-        onReset={() => resetRun()}
-        onRunBoth={runBothBranches}
+        onReset={handleResetRun}
+        onRunBoth={handleRunBothBranches}
         onBenchmark={() => setOverlay("benchmark")}
         onReplay={() => setOverlay("replay")}
         onCredits={() => setOverlay("credits")}
@@ -1671,17 +1809,15 @@ export default function App() {
             <AgentTracePanel entries={agentTrace} currentTask={taskDisplay} currentStory={currentStoryDisplay} fallbackTask={currentTask} />
           </div>
           {campaignConnection && runSource === "live" ? (
-            <details className="campaign-connection-panel" open={livePromptExpanded}>
-              <summary>
-                <span>{campaignConnection.connected ? "Agent connected" : "Agent connection prompt"}</span>
-                <b>{campaignConnection.status}</b>
-              </summary>
+            <article className="campaign-connection-panel compact-panel live-status-panel">
+              <span>{campaignConnection.connected ? "Agent connected" : "Waiting for agent"}</span>
+              <b>{campaignConnection.status}</b>
+              <p>{campaignConnection.campaignId}</p>
               {campaignConnection.error ? <p className="connection-error">{campaignConnection.error}</p> : null}
-              {livePromptExpanded ? <pre>{campaignConnection.prompt}</pre> : <span>Prompt folded after connection/start.</span>}
               <button className="ghost" onClick={() => navigator.clipboard?.writeText(campaignConnection.prompt)}>
                 Copy Prompt
               </button>
-            </details>
+            </article>
           ) : null}
           {runSource === "replay" ? (
             <article className="campaign-connection-panel compact-panel">
@@ -1813,6 +1949,124 @@ export default function App() {
           onClose={() => setOverlay(null)}
           onReplay={() => setOverlay("replay")}
         />
+      ) : null}
+      {overlay === "agentPrompt" && campaignConnection ? (
+        <section className="modal-shell campaign-modal-shell" role="dialog" aria-modal="true" aria-label="Agent connection prompt">
+          <div className="modal-card branch-card campaign-link-modal">
+            <div className="modal-heading">
+              <div>
+                <p className="panel-kicker">LIVE AGENT MODE</p>
+                <h2>Agent Connection Prompt</h2>
+              </div>
+              <button className="ghost" onClick={() => setOverlay(null)}>
+                Close
+              </button>
+            </div>
+            <p className="benchmark-note">Share this prompt with the live agent. The main game view will stay aligned with Demo Mode while the backend sends campaign events.</p>
+            <article className="copy-block prompt-block">
+              <b>{campaignConnection.campaignId}</b>
+              <textarea readOnly value={campaignConnection.prompt} />
+            </article>
+            {campaignConnection.error ? <p className="connection-error">{campaignConnection.error}</p> : null}
+            <div className="control-row compact">
+              <button className="ghost" onClick={() => navigator.clipboard?.writeText(campaignConnection.prompt)}>
+                Copy Prompt
+              </button>
+              <button onClick={startAgentRun}>Start Agent Run</button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+      {overlay === "agentConnected" && campaignConnection ? (
+        <section className="modal-shell campaign-modal-shell" role="dialog" aria-modal="true" aria-label="Agent connected">
+          <div className="modal-card branch-card campaign-link-modal">
+            <div className="modal-heading">
+              <div>
+                <p className="panel-kicker">LIVE AGENT CONNECTED</p>
+                <h2>Agent connected to Red Dust campaign</h2>
+              </div>
+              <button className="ghost" onClick={() => setOverlay(null)}>
+                Close
+              </button>
+            </div>
+            <p className="benchmark-note">The backend reports an active agent connection. The next visible task, action, dialogue, and state changes will use the same presentation path as Demo Mode.</p>
+            <article className="copy-block">
+              <b>{campaignConnection.campaignId}</b>
+              <p>{campaignConnection.status}</p>
+            </article>
+            <div className="control-row compact">
+              <button onClick={startAgentRun}>Start Agent Run</button>
+              <button className="ghost" onClick={() => setOverlay(null)}>
+                Keep Waiting
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+      {overlay === "campaignStory" && currentStoryDisplay ? (
+        <section className="modal-shell campaign-modal-shell" role="dialog" aria-modal="true" aria-label="Campaign story beat">
+          <div className={`modal-card branch-card campaign-story-modal ${currentStoryDisplay.kind}`}>
+            <div className="modal-heading">
+              <div>
+                <p className="panel-kicker">DAY {currentStoryDisplay.day} / {currentStoryDisplay.kind.replaceAll("_", " ")}</p>
+                <h2>{currentStoryDisplay.title}</h2>
+              </div>
+              <button className="ghost" onClick={() => setOverlay(null)}>
+                Continue
+              </button>
+            </div>
+            <p className="benchmark-note">{currentStoryDisplay.text}</p>
+            <ul className="campaign-story-beats">
+              {(currentStoryDisplay.beats.length ? currentStoryDisplay.beats : [currentStoryDisplay.replayText]).slice(0, 5).map((beat) => (
+                <li key={beat}>{beat}</li>
+              ))}
+            </ul>
+            <article className="copy-block">
+              <b>Replay</b>
+              <p>{currentStoryDisplay.replayText}</p>
+            </article>
+            {currentStoryDisplay.flags.length || currentStoryDisplay.unlocks.length ? (
+              <div className="campaign-story-markers">
+                {[...currentStoryDisplay.flags, ...currentStoryDisplay.unlocks].slice(0, 8).map((marker) => (
+                  <span key={marker}>{marker}</span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+      {overlay === "replayInput" ? (
+        <section className="modal-shell campaign-modal-shell" role="dialog" aria-modal="true" aria-label="Replay trace loader">
+          <form className="modal-card branch-card campaign-link-modal replay-input-modal" onSubmit={submitReplayInput}>
+            <div className="modal-heading">
+              <div>
+                <p className="panel-kicker">REPLAY TRACE MODE</p>
+                <h2>Load Campaign Replay</h2>
+              </div>
+              <button className="ghost" type="button" onClick={() => setOverlay(null)}>
+                Close
+              </button>
+            </div>
+            <p className="benchmark-note">Paste a campaign id, a full trace URL, or a URL containing trace_url / campaign_id. After loading, the game controls match Demo Mode.</p>
+            <label className="campaign-input-row">
+              <span>Trace URL or campaign id</span>
+              <input value={replayInput} onChange={(event) => setReplayInput(event.target.value)} placeholder="campaign_id or http://127.0.0.1:7001/campaigns/.../trace" autoFocus />
+            </label>
+            <label className="campaign-input-row">
+              <span>API base for campaign id</span>
+              <input value={replayApiBaseInput} onChange={(event) => setReplayApiBaseInput(event.target.value)} placeholder="http://127.0.0.1:7001" />
+            </label>
+            {campaignReplay.error ? <p className="connection-error">{campaignReplay.error}</p> : null}
+            <div className="control-row compact">
+              <button disabled={replayLoading || !replayInput.trim()} type="submit">
+                {replayLoading ? "Loading..." : "Load Replay"}
+              </button>
+              <button className="ghost" type="button" onClick={() => startDemo()}>
+                Back to Demo
+              </button>
+            </div>
+          </form>
+        </section>
       ) : null}
     </>
   );
